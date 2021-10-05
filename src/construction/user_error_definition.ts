@@ -1,0 +1,1 @@
+export type UserErrorDefinition<Payload> = (p: Payload) => boolean

@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const RecursiveMap_1 = require("../../src/map/RecursiveMap");
+const compare_1 = require("../../src/map/compare");
+const n_eq = (n1, n2) => n1 === n2;
+const test_sm_of = (n, sm, of, out) => test(`submap_of ${n}`, () => expect((0, compare_1.submap_of)(sm, of, n_eq)).toEqual(out));
+test_sm_of("empty of empty", (0, RecursiveMap_1.mk_map)(), (0, RecursiveMap_1.mk_map)(), true);
+test_sm_of("empty of non-empty 1", (0, RecursiveMap_1.mk_map)(), (0, RecursiveMap_1.mk_map)(["one", 1]), true);
+test_sm_of("empty of non-empty 3", (0, RecursiveMap_1.mk_map)(), (0, RecursiveMap_1.mk_map)(["one", 1], ["two", 2], ["three", 3]), true);
+test_sm_of("map of self 1", (0, RecursiveMap_1.mk_map)(["one", 1]), (0, RecursiveMap_1.mk_map)(["one", 1]), true);
+test_sm_of("map of self 2", (0, RecursiveMap_1.mk_map)(["one", 1], ["two", 2]), (0, RecursiveMap_1.mk_map)(["one", 1], ["two", 2]), true);
+test_sm_of("strict 2 of 4", (0, RecursiveMap_1.mk_map)(["one", 1], ["two", 2]), (0, RecursiveMap_1.mk_map)(["one", 1], ["two", 2], ["three", 3], ["four", 4]), true);
+test_sm_of("not 4 of 2", (0, RecursiveMap_1.mk_map)(["one", 1], ["two", 2], ["three", 3], ["four", 4]), (0, RecursiveMap_1.mk_map)(["one", 1], ["two", 2]), false);
+test_sm_of("not self of different value", (0, RecursiveMap_1.mk_map)(["one", 1]), (0, RecursiveMap_1.mk_map)(["one", 2]), false);
+test_sm_of("not self of different key", (0, RecursiveMap_1.mk_map)(["one", 2]), (0, RecursiveMap_1.mk_map)(["two", 1]), false);
+test_sm_of("self of rearranged 2", (0, RecursiveMap_1.mk_map)(["one", 1], ["two", 2]), (0, RecursiveMap_1.mk_map)(["two", 2], ["one", 1]), true);

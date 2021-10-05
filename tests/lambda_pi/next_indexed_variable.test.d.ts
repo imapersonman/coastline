@@ -1,0 +1,2 @@
+export declare const next_indexed_variable_tests: (import("../../src/lambda_pi/ast").TypeKind | import("../../src/lambda_pi/ast").GeneratedVariable)[][];
+//# sourceMappingURL=next_indexed_variable.test.d.ts.map
