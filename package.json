@@ -16,8 +16,10 @@
   "dependencies": {
     "@types/jest": "^27.0.2",
     "@types/lodash": "^4.14.175",
+    "chevrotain": "^9.0.2",
     "lodash": "^4.17.21",
-    "ts-jest": "^27.0.5"
-  },
-  "files": ["lib/*.ts"]
+    "parsimmon": "^1.18.0",
+    "ts-jest": "^27.0.5",
+    "typescript-parsec": "^0.3.2"
+  }
 }

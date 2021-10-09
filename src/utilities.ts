@@ -10,6 +10,8 @@ export const last = <T>(arr: T[]) => arr[arr.length - 1]
 
 export const rest = <T>(arr: T[]): T[] => arr.slice(1)
 
+export const string_in_array = (stra: string[], str: string): boolean => stra.some((in_a) => str === in_a)
+
 export const replace_at_index = <T>(arr: T[], index: number, replacement: T): T[] => { const ret = arr.slice(); ret.splice(index, 1, replacement); return ret }
 
 export const invert_string_array = (array: string[]): Record<string, number> =>

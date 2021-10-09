@@ -1,6 +1,6 @@
 import { KindSort, Sort } from "../../src/logical_framework/sort";
 import { Application, Ast, Constant, GeneratedVariable, Lambda, MetaVariable, Pi, TypeKind, Variable } from "../../src/lambda_pi/ast";
-import { parse } from "../../src/lambda_pi/parsers/lambda_pi_parser";
+import { parse, try_parse } from "../../src/lambda_pi/parsers/parser";
 import { mk_map, RecursiveMap } from "../../src/map/RecursiveMap";
 import { check_and_report, check_ctx, check_meta_ctx, check_sig, synthesize, check_ctx_and_report } from "../../src/logical_framework/synthesize_type";
 import { Env } from "../../src/logical_framework/env"
@@ -138,16 +138,15 @@ for (const example of examples) {
     test_synthesize(example.name, sig, example.ctx, example.ast, example.sort)
 }
 
-function safe_parse(input: string): Ast {
-    const parsed = parse(input)
-    if (parsed === undefined) throw new Error("Trying to parse unparseable!")
-    return parsed
-}
-
 import MacLogic from "../../src/logical_framework/maclogic_sig"
 
-test_synthesize("(A & B) \\/ (A & C) |- A", MacLogic, mk_map(), safe_parse("L(A: o).L(B: o).L(C: o).L(u1 : ml (or (and A B) (and A C))).ore (and A B) (and A C) A u1 (L(u2: ml (and A B)).andel A B u2) (L(u2: ml (and A C)).andel A C u2)"),
-    parse("P(A: o).P(B: o).P(C: o).P(u1: ml (or (and A B) (and A C))).ml A"))
+test_synthesize(
+    "(A & B) \\/ (A & C) |- A",
+    MacLogic,
+    mk_map(),
+    try_parse("L(A: o).L(B: o).L(C: o).L(u1 : ml (or (and A B) (and A C))).ore (and A B) (and A C) A u1 (L(u2: ml (and A B)).andel A B u2) (L(u2: ml (and A C)).andel A C u2)"),
+    try_parse("P(A: o).P(B: o).P(C: o).P(u1: ml (or (and A B) (and A C))).ml A")
+)
 
 function test_check_and_report(name: string, sig: Sig, ctx: Ctx, ast: Ast, sort: Sort, output: true | SortError) {
     const result = check_and_report(new Env(sig, ctx, mt_map), ast, sort)

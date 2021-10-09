@@ -1,4 +1,4 @@
-import { safe_parse } from "../../src/lambda_pi/parsers/lambda_pi_parser"
+import { try_parse } from "../../src/lambda_pi/parsers/parser"
 import { app, clist, con, flapp, la, mvlist, nary, ov, type_k } from "../../src/lambda_pi/shorthands"
 import { mk_map } from "../../src/map/RecursiveMap"
 import { is_unification_error } from "../../src/unification/first_order"
@@ -8,7 +8,7 @@ import { unify_in_tactic } from "../../src/construction/unify_in_tactic"
 import { user_error } from "../../src/construction/user_error"
 import { VerifiedInteractionSpecification } from "../../src/construction/verified_interaction_specification"
 import { Ast, Variable } from "../../src/lambda_pi/ast"
-import { declare, defined, first, is_empty, is_integer, is_number, is_string, rest } from "../../src/utilities"
+import { declare, defined, is_integer, is_number, is_string, rest } from "../../src/utilities"
 import { request } from "../../src/construction/request"
 import { possibly_beta_reduce } from "../../src/lambda_pi/to_beta_normal_form"
 import { request_definition } from "../../src/construction/request_definition"
@@ -38,36 +38,36 @@ export const maclogic_specification: VerifiedInteractionSpecification = {
         ["o", type_k],
         ["i", type_k],
         // ml
-        ["ml", safe_parse("P(p: o).Type")],
+        ["ml", try_parse("P(p: o).Type")],
         // absurd
         ["absurd", o],
         // not, noti, note
-        ["not", safe_parse("P(q: o).o")],
-        ["noti", safe_parse("P(A: o).P(p: P(x: ml A).ml absurd).ml (not A)")],
-        ["note", safe_parse("P(A: o).P(maj: ml (not A)).P(min: ml A).ml absurd")],
+        ["not", try_parse("P(q: o).o")],
+        ["noti", try_parse("P(A: o).P(p: P(x: ml A).ml absurd).ml (not A)")],
+        ["note", try_parse("P(A: o).P(maj: ml (not A)).P(min: ml A).ml absurd")],
         // and, andi, andel, ander
-        ["and", safe_parse("P(x: o).P(y: o).o")],
-        ["andi", safe_parse("P(A: o).P(B: o).P(l: ml A).P(r: ml B).ml (and A B)")],
-        ["andel", safe_parse("P(A: o).P(B: o).P(p: ml (and A B)).ml A")],
-        ["ander", safe_parse("P(A: o).P(B: o).P(p: ml (and A B)).ml B")],
+        ["and", try_parse("P(x: o).P(y: o).o")],
+        ["andi", try_parse("P(A: o).P(B: o).P(l: ml A).P(r: ml B).ml (and A B)")],
+        ["andel", try_parse("P(A: o).P(B: o).P(p: ml (and A B)).ml A")],
+        ["ander", try_parse("P(A: o).P(B: o).P(p: ml (and A B)).ml B")],
         // individuali
-        ["individuali", safe_parse("P(A: o).P(if: P(a: i).ml(A)).ml(A)")],
+        ["individuali", try_parse("P(A: o).P(if: P(a: i).ml A).ml A")],
         // imp, impi, impe
-        ["imp", safe_parse("P(x: o).P(y: o).o")],
-        ["impi", safe_parse("P(A: o).P(B: o).P(p: P(x: ml A).ml B).ml (imp A B)")],
-        ["impe", safe_parse("P(A: o).P(B: o).P(maj: ml (imp A B)).P(min: ml A).ml B")],
+        ["imp", try_parse("P(x: o).P(y: o).o")],
+        ["impi", try_parse("P(A: o).P(B: o).P(p: P(x: ml A).ml B).ml (imp A B)")],
+        ["impe", try_parse("P(A: o).P(B: o).P(maj: ml (imp A B)).P(min: ml A).ml B")],
         // forall, foralli, foralle
-        ["forall", safe_parse("P(b: P(x: i).o).o")],
-        ["foralli", safe_parse("P(phi: P(x: i).o).P(p: P(t: i).ml (phi t)).ml (forall phi)")],
-        ["foralle", safe_parse("P(phi: P(x: i).o).P(t: i).P(p: ml (forall phi)).ml (phi t)")],
+        ["forall", try_parse("P(b: P(x: i).o).o")],
+        ["foralli", try_parse("P(phi: P(x: i).o).P(p: P(t: i).ml (phi t)).ml (forall phi)")],
+        ["foralle", try_parse("P(phi: P(x: i).o).P(t: i).P(p: ml (forall phi)).ml (phi t)")],
         // exists, existsi, existse
-        ["exists", safe_parse("P(b: P(x: i).o).o")],
-        ["existsi", safe_parse("P(phi: P(x: i).o).P(t: i).P(p: ml (phi t)).ml (exists phi)")],
-        ["existse", safe_parse("P(phi: P(a: i).o).P(A: o).P(e: ml (exists phi)).P(p: P(x: i).P(y: ml (phi x)).ml A).ml A")],
+        ["exists", try_parse("P(b: P(x: i).o).o")],
+        ["existsi", try_parse("P(phi: P(x: i).o).P(t: i).P(p: ml (phi t)).ml (exists phi)")],
+        ["existse", try_parse("P(phi: P(a: i).o).P(A: o).P(e: ml (exists phi)).P(p: P(x: i).P(y: ml (phi x)).ml A).ml A")],
         // iff, dfl, dfr
-        ["iff", safe_parse("P(x: o).P(y: o).o")],
-        ["dfl", safe_parse("P(A: o).P(B: o).P(iff: ml (iff A B)).ml (and (imp A B) (imp B A))")],
-        ["dfr", safe_parse("P(A: o).P(B: o).P(andp: ml (and (imp A B) (imp B A))).ml (iff A B)")],
+        ["iff", try_parse("P(x: o).P(y: o).o")],
+        ["dfl", try_parse("P(A: o).P(B: o).P(iff: ml (iff A B)).ml (and (imp A B) (imp B A))")],
+        ["dfr", try_parse("P(A: o).P(B: o).P(andp: ml (and (imp A B) (imp B A))).ml (iff A B)")],
     ),
     tactics: {
         // close
