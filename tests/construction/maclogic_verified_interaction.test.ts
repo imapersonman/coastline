@@ -6,7 +6,7 @@ import { Ast, Variable } from "../../src/lambda_pi/ast"
 import { app, clist, con, flapp, iovlist, iv, la, mvlist, nary, ov, ovlist, pi, type_k } from "../../src/lambda_pi/shorthands"
 import { mk_map } from "../../src/map/RecursiveMap"
 import { ConflictingEquations } from "../../src/unification/first_order"
-import { maclogic_specification } from "./maclogic_verified_interaction"
+import { maclogic_specification } from "../../src/construction/maclogic_verified_interaction"
 
 test("maclogic interaction specification", () =>
     expect(

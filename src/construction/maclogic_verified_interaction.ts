@@ -1,22 +1,22 @@
-import { try_parse } from "../../src/lambda_pi/parsers/parser"
-import { app, clist, con, flapp, la, mvlist, nary, ov, type_k } from "../../src/lambda_pi/shorthands"
-import { mk_map } from "../../src/map/RecursiveMap"
-import { is_unification_error } from "../../src/unification/first_order"
-import { insert } from "../../src/construction/insert"
-import { find_unifying_assumptions, UnifyingAssumption } from "../../src/construction/unifying_assumptions"
-import { unify_in_tactic } from "../../src/construction/unify_in_tactic"
-import { user_error } from "../../src/construction/user_error"
-import { VerifiedInteractionSpecification } from "../../src/construction/verified_interaction_specification"
-import { Ast, Variable } from "../../src/lambda_pi/ast"
-import { declare, defined, is_integer, is_number, is_string, rest } from "../../src/utilities"
-import { request } from "../../src/construction/request"
-import { possibly_beta_reduce } from "../../src/lambda_pi/to_beta_normal_form"
-import { request_definition } from "../../src/construction/request_definition"
-import { tactic_error } from "../../src/construction/tactic_error"
-import { Ctx } from "../../src/logical_framework/ctx"
-import { is_map } from "../../src/map/is_map"
-import { ThrowingUnifyingAssumption, throwing_unifying_assumption } from "../../src/construction/throwing_unifying_assumption"
-import { is_ast, is_variable } from "../../src/lambda_pi/utilities"
+import { try_parse } from "../lambda_pi/parsers/parser"
+import { app, clist, con, flapp, la, mvlist, nary, ov, type_k } from "../lambda_pi/shorthands"
+import { mk_map } from "../map/RecursiveMap"
+import { is_unification_error } from "../unification/first_order"
+import { insert } from "./insert"
+import { find_unifying_assumptions, UnifyingAssumption } from "./unifying_assumptions"
+import { unify_in_tactic } from "./unify_in_tactic"
+import { user_error } from "./user_error"
+import { VerifiedInteractionSpecification } from "./verified_interaction_specification"
+import { Ast, Variable } from "../lambda_pi/ast"
+import { declare, defined, is_integer, is_number, is_string, rest } from "../utilities"
+import { request } from "./request"
+import { possibly_beta_reduce } from "../lambda_pi/to_beta_normal_form"
+import { request_definition } from "./request_definition"
+import { tactic_error } from "./tactic_error"
+import { Ctx } from "../logical_framework/ctx"
+import { is_map } from "../map/is_map"
+import { ThrowingUnifyingAssumption, throwing_unifying_assumption } from "./throwing_unifying_assumption"
+import { is_ast, is_variable } from "../lambda_pi/utilities"
 
 const [o, i] = clist("o", "i")
 const [ml, and, imp, or, iff] = [nary<[]>("ml"), nary<[Ast]>("and"), nary<[Ast]>("imp"), nary<[Ast]>("or"), nary<[Ast]>("iff")]
@@ -200,7 +200,7 @@ export const maclogic_specification: VerifiedInteractionSpecification = {
         // unification_error
         "unification_error": is_unification_error,
         // no_unifying_assumptions_found
-        "no_unifying_assumptions_found": (payload) => !is_ast(payload),
+        "no_unifying_assumptions_found": (payload) => is_ast(payload),
         // no_unifying_assumptions_or_conclusion_found
         "no_unifying_assumptions_or_conclusion_found": (payload) => true
     }
