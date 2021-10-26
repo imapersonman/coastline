@@ -83,11 +83,26 @@ export const maclogic_specification: VerifiedInteractionSpecification = {
             return insert([ml(u("X")), ml(u("Y"))], (m, v) => andi(u("X"), u("Y"), m(0), m(1)))
         },
         // ande
+        /*
+        "ande2": ({ assumptions, conclusion }) => simple_tactic({
+            ua: request("unifying_assumption", { assumptions, pattern: ml(and(X, Y)) })
+        }, (responses) => {
+            const { unifier: u, variable: a } = responses("ua")
+            return insert([conclusion], (m, v) => flapp(la(v(0), ml(u("X")), la(v(1), ml(u("Y")), m(0))), andel(u("X"), u("Y"), a), ander(u("X"), u("Y"), a)))
+        }),
+        */
         "ande": function* ({ assumptions, conclusion }) {
             const { unifier: u, variable: a } = yield request("unifying_assumption", { assumptions, pattern: ml(and(X, Y)) })
             return insert([conclusion], (m, v) => flapp(la(v(0), ml(u("X")), la(v(1), ml(u("Y")), m(0))), andel(u("X"), u("Y"), a), ander(u("X"), u("Y"), a)))
         },
         // impi
+        /*
+        "impi2": ({ conclusion }) => simple_tactic({}, () => {
+            const u = unify_in_tactic(ml(imp(X, Y)), conclusion)
+            if (is_unification_error(u)) return user_error("unification_error", u)
+            return insert([ml(u("Y"))], (m, v) => impi(u("X"), u("Y"), la(v(0), ml(u("X")), m(0))))
+        }),
+        */
         "impi": function* ({ conclusion }) {
             const u = unify_in_tactic(ml(imp(X, Y)), conclusion)
             if (is_unification_error(u)) return user_error("unification_error", u)

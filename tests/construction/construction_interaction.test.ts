@@ -16,7 +16,7 @@ import { maclogic_specification } from "../../src/construction/maclogic_verified
 import { insert, Insert } from "../../src/construction/insert";
 import { RequestDefinition } from "../../src/construction/request_definition";
 import { unifying_assumption } from "../../src/construction/unifying_assumptions";
-import { emit_defined_or_undefined, get_user_selected_tactic_and_sub_problem, get_valid_main_problem_from_user, notify_user_about_error, notify_user_about_insert, run_interaction, run_response_interaction } from "../../src/construction/interaction";
+import { emit_defined_or_undefined, get_user_selected_tactic_and_sub_problem, get_valid_main_problem_from_user, notify_user_about_error, notify_user_about_insert, mk_run_interaction, run_response_interaction, Expect, EmitEvent, Exceptions } from "../../src/construction/interaction";
 
 type CheckedGeneratorEntry<Y, R> =
     | { gen: Y, exp: Y }
@@ -306,44 +306,13 @@ const test_generator_expectation = <T = any, I = any, R = any>(name: string, gen
     )
 }
 
-interface EmitEvent<Event> {
-    user_gave_bad_main_problem: (mp: Sequent, mp_check: SequentError) => Event
-    user_gave_main_problem: (mp: Sequent) => Event
-    // yield emit_event.user_started_tactic(tactic_id, tactic, current_sub_problem)
-    user_gave_bad_tactic: (tactic_id: string) => Event
-    user_gave_tactic: (tactic_id: string, tactic: Tactic<any>) => Event
-    user_gave_sub_problem: (sub_problem: SubProblem) => Event
-    user_gave_bad_sub_problem: (sub_problem_id: string) => Event,
-    started_tactic: (tactic_id: string, tactic: Tactic<any>, sub_problem: SubProblem) => Event
-    user_messed_up: (user_error: UserError) => Event
-    tactic_has_made_request: (request: Request<any>, transformed_parameter: any) => Event
-    user_responded_to_request: (response: any, transformed_response: any) => Event
-    finished_tactic: (valid_proof_insert: ValidProofInsert) => Event,
-    finished_main_problem: (main_problem: Sequent) => Event
-}
-
-interface Expect<Expectation> {
-    user_to_give_main_problem: () => Expectation
-    user_to_give_tactic_or_sub_problem_id: () => Expectation
-    user_to_respond_to_request: (request: Request<any>, transformed_parameter: any) => Expectation
-}
-
-// Every exception returns a string so that it can be passed into typescript's Error constructor.
-interface Exceptions {
-    tactic_error: (te: TacticError) => string
-    invalid_user_error_id: (uid: string) => string
-    invalid_user_error_payload: (ue: UserError) => string
-    invalid_request_id: (rid: string) => string
-    invalid_proof_insert: (ipi: InvalidProofInsert) => string
-}
-
-const default_expect: Expect<string> = {
+const test_expect: Expect<string> = {
     user_to_give_main_problem: () => "expect_user_to_give_main_problem",
     user_to_give_tactic_or_sub_problem_id: () => "expect_user_to_give_tactic_or_sub_problem_id",
     user_to_respond_to_request: (request, transformed_response) => "expect_user_to_respond_to_request"
 }
 
-const default_emit_event: EmitEvent<string> = {
+const test_emit: EmitEvent<string> = {
     user_gave_bad_main_problem: (main_problem, main_problem_check) => "emit_event_user_gave_bad_main_problem",
     user_gave_main_problem: (main_problem) => "emit_event_user_gave_main_problem",
     user_gave_bad_tactic: (tactic_id) => "emit_event_user_gave_bad_tactic",
@@ -366,8 +335,6 @@ const default_exceptions: Exceptions = {
     invalid_proof_insert: (ipi: InvalidProofInsert) => `exceptions_invalid_proof_insert`
 }
 
-
-
 const o = con("o")
 const ml = (x: Ast): Ast => app(con("ml"), x)
 const and = (x: Ast, y: Ast): Ast => flapp(con("and"), x, y)
@@ -377,7 +344,7 @@ const [X, Y] = mvlist("X", "Y")
 const test_simple_get_valid_main_problem_from_user = (name: string, interactions: GeneratorExpectation<any, any, any>) =>
     test_generator_expectation(
         `get_valid_main_problem_from_user ${name}`,
-        get_valid_main_problem_from_user( maclogic_specification.sig, default_expect, default_emit_event),
+        get_valid_main_problem_from_user( maclogic_specification.sig, test_expect, test_emit),
         interactions)
 
 test_simple_get_valid_main_problem_from_user("no bads", {
@@ -460,7 +427,7 @@ const sub_problems_example_3 = {
 }
 
 test_generator_expectation("get_user_selected_tactic_and_sub_problem: no bads, sub_problem_id first",
-    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_1, default_emit_event, default_expect),
+    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_1, test_emit, test_expect),
     {
         yields: [
             { yielded: "expect_user_to_give_tactic_or_sub_problem_id", continued_with: { type: "SubProblemId", value: 0 } },
@@ -473,7 +440,7 @@ test_generator_expectation("get_user_selected_tactic_and_sub_problem: no bads, s
 )
 
 test_generator_expectation("get_user_selected_tactic_and_sub_problem: no bads, sub_problem_id first, reset sub_problem",
-    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_2, default_emit_event, default_expect),
+    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_2, test_emit, test_expect),
     {
         yields: [
             { yielded: "expect_user_to_give_tactic_or_sub_problem_id", continued_with: { type: "SubProblemId", value: 0 } },
@@ -488,7 +455,7 @@ test_generator_expectation("get_user_selected_tactic_and_sub_problem: no bads, s
 )
 
 test_generator_expectation("get_user_selected_tactic_and_sub_problem: no bads, tactic_id first",
-    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_2, default_emit_event, default_expect),
+    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_2, test_emit, test_expect),
     {
         yields: [
             { yielded: "expect_user_to_give_tactic_or_sub_problem_id", continued_with: { type: "TacticId", value: "close" } },
@@ -501,7 +468,7 @@ test_generator_expectation("get_user_selected_tactic_and_sub_problem: no bads, t
 )
 
 test_generator_expectation("get_user_selected_tactic_and_sub_problem: no bads, tactic_id first, reset tactic_id",
-    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_2, default_emit_event, default_expect),
+    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_2, test_emit, test_expect),
     {
         yields: [
             { yielded: "expect_user_to_give_tactic_or_sub_problem_id", continued_with: { type: "TacticId", value: "close" } },
@@ -516,7 +483,7 @@ test_generator_expectation("get_user_selected_tactic_and_sub_problem: no bads, t
 )
 
 test_generator_expectation("get_user_selected_tactic_and_sub_problem: one bad tactic, sub_problem_id first",
-    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_3, default_emit_event, default_expect),
+    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_3, test_emit, test_expect),
     {
         yields: [
             { yielded: "expect_user_to_give_tactic_or_sub_problem_id", continued_with: { type: "TacticId", value: "beans" } },
@@ -531,7 +498,7 @@ test_generator_expectation("get_user_selected_tactic_and_sub_problem: one bad ta
 )
 
 test_generator_expectation("get_user_selected_tactic_and_sub_problem: one bad sub_problem, tactic_id first",
-    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_3, default_emit_event, default_expect),
+    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_3, test_emit, test_expect),
     {
         yields: [
             { yielded: "expect_user_to_give_tactic_or_sub_problem_id", continued_with: { type: "TacticId", value: "andi" } },
@@ -546,7 +513,7 @@ test_generator_expectation("get_user_selected_tactic_and_sub_problem: one bad su
 )
 
 test_generator_expectation("get_user_selected_tactic_and_sub_problem: a bunch of random bads",
-    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_3, default_emit_event, default_expect),
+    get_user_selected_tactic_and_sub_problem(maclogic_specification.tactics, sub_problems_example_3, test_emit, test_expect),
     {
         yields: [
             { yielded: "expect_user_to_give_tactic_or_sub_problem_id", continued_with: { type: "TacticId", value: "uhhhhh" } },
@@ -571,7 +538,7 @@ test_generator_expectation("get_user_selected_tactic_and_sub_problem: a bunch of
 )
 
 test_generator_expectation("can't find user_error_id 'cookies'",
-    notify_user_about_error(maclogic_specification.errors, user_error("cookies", 1), default_emit_event, default_exceptions),
+    notify_user_about_error(maclogic_specification.errors, user_error("cookies", 1), test_emit, default_exceptions),
     {
         yields: [],
         throws: "exceptions_invalid_user_error_id: cookies"
@@ -579,7 +546,7 @@ test_generator_expectation("can't find user_error_id 'cookies'",
 )
 
 test_generator_expectation("can't find user_error_id 'chips'",
-    notify_user_about_error(maclogic_specification.errors, user_error("chips", -1), default_emit_event, default_exceptions),
+    notify_user_about_error(maclogic_specification.errors, user_error("chips", -1), test_emit, default_exceptions),
     {
         yields: [],
         throws: "exceptions_invalid_user_error_id: chips"
@@ -587,7 +554,7 @@ test_generator_expectation("can't find user_error_id 'chips'",
 )
 
 test_generator_expectation("not_a_string payload is a string",
-    notify_user_about_error(maclogic_specification.errors, user_error("not_a_string", "is_a_string"), default_emit_event, default_exceptions),
+    notify_user_about_error(maclogic_specification.errors, user_error("not_a_string", "is_a_string"), test_emit, default_exceptions),
     {
         yields: [],
         throws: "exceptions_invalid_user_error_payload: not_a_string"
@@ -595,7 +562,7 @@ test_generator_expectation("not_a_string payload is a string",
 )
 
 test_generator_expectation("not_an_integer payload is an integer",
-    notify_user_about_error(maclogic_specification.errors, user_error("not_an_integer", 0), default_emit_event, default_exceptions),
+    notify_user_about_error(maclogic_specification.errors, user_error("not_an_integer", 0), test_emit, default_exceptions),
     {
         yields: [],
         throws: "exceptions_invalid_user_error_payload: not_an_integer"
@@ -603,14 +570,14 @@ test_generator_expectation("not_an_integer payload is an integer",
 )
 
 test_generator_expectation("not_a_string success",
-    notify_user_about_error(maclogic_specification.errors, user_error("not_a_string", 0), default_emit_event, default_exceptions),
+    notify_user_about_error(maclogic_specification.errors, user_error("not_a_string", 0), test_emit, default_exceptions),
     {
         yields: [{ yielded: "emit_event_user_messed_up" }]
     }
 )
 
 test_generator_expectation("not_an_integer success",
-    notify_user_about_error(maclogic_specification.errors, user_error("not_an_integer", "bun"), default_emit_event, default_exceptions),
+    notify_user_about_error(maclogic_specification.errors, user_error("not_an_integer", "bun"), test_emit, default_exceptions),
     {
         yields: [{ yielded: "emit_event_user_messed_up" }]
     }
@@ -623,8 +590,8 @@ test_generator_expectation(
         mk_map(["a", ml(and(A, B))], ["b", ml(and(B, A))]),
         maclogic_specification.requests["used_variable"].response,
         maclogic_specification.errors,
-        default_emit_event,
-        default_expect,
+        test_emit,
+        test_expect,
         default_exceptions
     ),
     {
@@ -643,8 +610,8 @@ test_generator_expectation(
         mk_map(["a", ml(and(A, B))], ["b", ml(and(B, A))]),
         maclogic_specification.requests["used_variable"].response,
         maclogic_specification.errors,
-        default_emit_event,
-        default_expect,
+        test_emit,
+        test_expect,
         default_exceptions
     ),
     {
@@ -663,8 +630,8 @@ test_generator_expectation(
         mk_map(["a", ml(and(A, B))], ["b", ml(and(B, A))]),
         maclogic_specification.requests["used_variable"].response,
         maclogic_specification.errors,
-        default_emit_event,
-        default_expect,
+        test_emit,
+        test_expect,
         default_exceptions
     ),
     {
@@ -684,11 +651,11 @@ test_generator_expectation(
     "is valid",
     notify_user_about_insert(
         maclogic_specification.sig,
-        sequent(mk_map(["A", o], ["a", ml(A)]), ml(A)),
+        sub_problem(imv(0), sequent(mk_map(["A", o], ["a", ml(A)]), ml(A))),
         insert([], (m, v) => ov("a")),
         imv,
         iv,
-        default_emit_event,
+        test_emit,
         default_exceptions
     ),
     { yields: [{ yielded: "emit_event_finished_tactic" }], returns: valid_proof_insert(ov("a"), [], []) }
@@ -698,11 +665,11 @@ test_generator_expectation(
     "is invalid",
     notify_user_about_insert(
         maclogic_specification.sig,
-        sequent(mk_map(["A", o], ["a", ml(A)]), ml(A)),
+        sub_problem(imv(1), sequent(mk_map(["A", o], ["a", ml(A)]), ml(A))),
         insert([], (m, v) => ov("b")),
         imv,
         iv,
-        default_emit_event,
+        test_emit,
         default_exceptions
     ),
     { yields: [], throws: "exceptions_invalid_proof_insert" }
@@ -711,12 +678,11 @@ test_generator_expectation(
 const test_simple_interaction = (name: string, spec: VerifiedInteractionSpecification, interaction: GeneratorExpectation<any, any, any>): void =>
     test_generator_expectation(
         `run_interaction ${name}`,
-        run_interaction(
-            spec,
-            default_expect,
-            default_emit_event,
+        mk_run_interaction(
+            test_expect,
+            test_emit,
             default_exceptions
-        ),
+        )(spec),
         interaction
     )
 
