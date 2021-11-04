@@ -10,7 +10,7 @@ import { mk_map } from "../../src/map/RecursiveMap";
 import { defined } from "../../src/utilities";
 import { maclogic_specification } from "../../src/construction/maclogic_verified_interaction";
 import { insert } from "../../src/construction/insert";
-import { emit_defined_or_undefined, get_user_selected_tactic_and_sub_problem, get_valid_main_problem_from_user, notify_user_about_error, notify_user_about_insert, mk_run_interaction, run_response_interaction, Expect, EmitEvent, Exceptions } from "../../src/construction/interaction";
+import { emit_defined_or_undefined, get_user_selected_tactic_and_sub_problem, get_valid_main_problem_from_user, notify_user_about_error, notify_user_about_insert, mk_run_interaction, run_response_interaction, Expect, EmitEvent, Exceptions } from "../../src/construction/interaction2";
 import { check_finite_generator_against_array, GeneratorExpectation } from "./check_generator";
 
 const test_generator_expectation = <T = any, I = any, R = any>(name: string, generator: Generator<T, I, R>, expectation: GeneratorExpectation<T, I, R>) => {
@@ -310,7 +310,7 @@ test_generator_expectation(
     {
         yields: [
             { yielded: "emit_event_tactic_has_made_request" },
-            { yielded: "expect_user_to_respond_to_request", continued_with: "a" }
+            { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: "a" } }
         ],
         returns: ['a', ov('a')]
     }
@@ -330,7 +330,7 @@ test_generator_expectation(
     {
         yields: [
             { yielded: "emit_event_tactic_has_made_request" },
-            { yielded: "expect_user_to_respond_to_request", continued_with: "b" }
+            { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: "b" } }
         ],
         returns: ['b', ov('b')]
     }
@@ -350,11 +350,11 @@ test_generator_expectation(
     {
         yields: [
             { yielded: "emit_event_tactic_has_made_request" },
-            { yielded: "expect_user_to_respond_to_request", continued_with: 0 },
+            { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: 0 } },
             { yielded: "emit_event_user_messed_up" },
-            { yielded: "expect_user_to_respond_to_request", continued_with: "c" },
+            { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: "c" } },
             { yielded: "emit_event_user_messed_up" },
-            { yielded: "expect_user_to_respond_to_request", continued_with: "b" }
+            { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: "b" } }
         ],
         returns: ['b', ov('b')]
     }
@@ -464,7 +464,7 @@ test_simple_interaction("simple_ande_close_with_request", maclogic_specification
         { yielded: "emit_event_started_tactic" },
 
         { yielded: "emit_event_tactic_has_made_request" },
-        { yielded: "expect_user_to_respond_to_request", continued_with: 0 },
+        { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: 0 } },
         { yielded: "emit_event_user_responded_to_request" },
 
         { yielded: "emit_event_finished_tactic" },
@@ -489,7 +489,7 @@ test_simple_interaction("simple_ande_close_with_request", maclogic_specification
         { yielded: "emit_event_started_tactic" },
 
         { yielded: "emit_event_tactic_has_made_request" },
-        { yielded: "expect_user_to_respond_to_request", continued_with: 0 },
+        { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: 0 } },
         { yielded: "emit_event_user_responded_to_request" },
 
         { yielded: "emit_event_finished_tactic" },
@@ -519,10 +519,10 @@ test_simple_interaction("simple_multiple_requests", maclogic_specification, {
         { yielded: "emit_event_user_gave_sub_problem" },
         { yielded: "emit_event_started_tactic" },
         { yielded: "emit_event_tactic_has_made_request" },
-        { yielded: "expect_user_to_respond_to_request", continued_with: 0 },
+        { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: 0 } },
         { yielded: "emit_event_user_responded_to_request" },
         { yielded: "emit_event_tactic_has_made_request" },
-        { yielded: "expect_user_to_respond_to_request", continued_with: "c" },
+        { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: "c" } },
         { yielded: "emit_event_user_responded_to_request" },
         { yielded: "emit_event_finished_tactic" },
 
@@ -532,7 +532,7 @@ test_simple_interaction("simple_multiple_requests", maclogic_specification, {
         { yielded: "emit_event_user_gave_sub_problem" },
         { yielded: "emit_event_started_tactic" },
         { yielded: "emit_event_tactic_has_made_request" },
-        { yielded: "expect_user_to_respond_to_request", continued_with: "c" },
+        { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: "c" } },
         { yielded: "emit_event_user_responded_to_request" },
         { yielded: "emit_event_finished_tactic" },
 
@@ -542,7 +542,7 @@ test_simple_interaction("simple_multiple_requests", maclogic_specification, {
         { yielded: "emit_event_user_gave_sub_problem" },
         { yielded: "emit_event_started_tactic" },
         { yielded: "emit_event_tactic_has_made_request" },
-        { yielded: "expect_user_to_respond_to_request", continued_with: 0 },
+        { yielded: "expect_user_to_respond_to_request", continued_with: { type: "Response", value: 0 } },
         { yielded: "emit_event_user_responded_to_request" },
         { yielded: "emit_event_finished_tactic" },
 

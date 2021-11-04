@@ -1,4 +1,4 @@
-import { check_proof_insert, InvalidProofInsert, is_valid_proof_insert, SubProblem, sub_problem, ValidProofInsert } from "./check_proof_insert";
+import { check_proof_insert, display_invalid_proof_insert, InvalidProofInsert, is_valid_proof_insert, SubProblem, sub_problem, ValidProofInsert } from "./check_proof_insert";
 import { check_sequent, is_sequent_error, SequentError } from "./check_sequent";
 import { is_sequent, sequent, Sequent } from "./sequent";
 import { Tactic } from "./tactic";
@@ -49,7 +49,7 @@ export const is_user_expectation = (u: unknown): u is UserExpectation<unknown> =
 export class ConstructorEvent<D> { constructor(readonly event: keyof EmitEvent<unknown>, readonly data: D) {} }
 export const is_constructor_event = (c: unknown): c is ConstructorEvent<unknown> => c instanceof ConstructorEvent
 
-type ExpectedInput =
+export type ExpectedInput =
     | { type: 'TacticId', value: string }
     | { type: 'SubProblemId', value: number }
     | { type: 'MainProblem', value: Sequent }
@@ -103,7 +103,7 @@ export const default_exceptions = {
     invalid_user_error_id: (uid: string) => `Invalid User Error Id:\n${JSON.stringify(uid)}`,
     invalid_user_error_payload: (ue: UserError) => `Invalid User Error Payload:\n${JSON.stringify(ue)}`,
     invalid_request_id: (rid: string) => `Invalid Request Id:\n${JSON.stringify(rid)}`,
-    invalid_proof_insert: (ipi: InvalidProofInsert) => `Invalid Proof Insert:\n${JSON.stringify(ipi)}`,
+    invalid_proof_insert: (ipi: InvalidProofInsert) => `Invalid Proof Insert:\n${JSON.stringify(display_invalid_proof_insert(ipi), null, 2)}`,
 }
 
 export function* get_valid_main_problem_from_user(sig: Sig, expect: Expect<any>, emit_event: EmitEvent<any>) {
@@ -185,11 +185,11 @@ export function* run_response_interaction<Y>(
     exceptions: Exceptions
 ): Generator<Y, [any, any], any> {
     yield emit_event.tactic_has_made_request(request, transformed_parameter)
-    let response = yield expect.user_to_respond_to_request(request, transformed_parameter)
+    let response = check_input(yield expect.user_to_respond_to_request(request, transformed_parameter)).value
     let transformed_response = response_transformer({ p: request.parameter, tp: transformed_parameter, r: response })
     while (is_user_error(transformed_response)) {
         yield* notify_user_about_error(user_error_payload_guards, transformed_response, emit_event, exceptions)
-        response = yield expect.user_to_respond_to_request(request, transformed_parameter)
+        response = check_input(yield expect.user_to_respond_to_request(request, transformed_parameter)).value
         transformed_response = response_transformer({ p: request.parameter, tp: transformed_parameter, r: response })
     }
     return [response, transformed_response]
@@ -272,6 +272,7 @@ export function mk_run_interaction<Exp, Emi>(expect: Expect<Exp>, emit_event: Em
 
         // We doneeee!
         yield emit_event.finished_main_problem(main_problem)
+        // return main_problem
     }
 }
 
