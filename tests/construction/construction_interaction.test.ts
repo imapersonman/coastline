@@ -330,7 +330,7 @@ const test_emit: EmitEvent<string> = {
 const default_exceptions: Exceptions = {
     tactic_error: (te: TacticError): string => `exceptions_tactic_error: ${te.message}`,
     invalid_user_error_id: (uid: string): string => `exceptions_invalid_user_error_id: ${uid}`,
-    invalid_user_error_payload: (ue: UserError): string => `exceptions_invalid_user_error_payload: ${ue.id}`,
+    invalid_user_error_payload: (ue: UserError<any>): string => `exceptions_invalid_user_error_payload: ${ue.id}`,
     invalid_request_id: (rid: string): string => `exceptions_invalid_request_id: ${rid}`,
     invalid_proof_insert: (ipi: InvalidProofInsert) => `exceptions_invalid_proof_insert`
 }

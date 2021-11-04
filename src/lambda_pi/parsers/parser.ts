@@ -14,10 +14,11 @@ const lambda_pi = P.createLanguage({
         r.MetaVariable,
         r.Expression.wrap(P.string("("), P.string(")"))
     ),
-    Application: (r) => r.Factor.sepBy(P.whitespace).assert((a) => a.length >= 2).map((a) => {
-        const associate = (a) => a.length === 2 ? a : [associate(a.slice(0, -1)), last(a)]
-        return associate(a)
-    }),
+    Application: (r) => r.Factor.sepBy(P.whitespace).assert((a) => a.length >= 2, "The number of arguments in an Application must be greater than or equal to 1")
+        .map((a) => {
+            const associate = (a: any[]): any[] => a.length === 2 ? a : [associate(a.slice(0, -1)), last(a)]
+            return associate(a)
+        }),
     Pi:     (r) => P.seq(P.alt(P.string("P"), P.string("∏")).skip(P.optWhitespace), r.Abstraction).map(([,abstraction]) => ["∏", ...abstraction]),
     Lambda: (r) => P.seq(P.alt(P.string("L"), P.string("λ")).skip(P.optWhitespace), r.Abstraction).map(([,abstraction]) => ["λ", ...abstraction]),
     Abstraction: (r) => P.seq(

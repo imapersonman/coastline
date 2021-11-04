@@ -22,28 +22,28 @@ const test_generator_expectation = <T = any, I = any, R = any>(name: string, gen
 const test_expect: Expect<string> = {
     user_to_give_main_problem: () => "expect_user_to_give_main_problem",
     user_to_give_tactic_or_sub_problem_id: () => "expect_user_to_give_tactic_or_sub_problem_id",
-    user_to_respond_to_request: (request, transformed_response) => "expect_user_to_respond_to_request"
+    user_to_respond_to_request: ({ request, transformed_parameter }) => "expect_user_to_respond_to_request"
 }
 
 const test_emit: EmitEvent<string> = {
-    user_gave_bad_main_problem: (main_problem, main_problem_check) => "emit_event_user_gave_bad_main_problem",
-    user_gave_main_problem: (main_problem) => "emit_event_user_gave_main_problem",
-    user_gave_bad_tactic: (tactic_id) => "emit_event_user_gave_bad_tactic",
-    user_gave_tactic: (id, tactic) => "emit_event_user_gave_tactic",
-    user_gave_bad_sub_problem: (sub_problem_id) => "emit_event_user_gave_bad_sub_problem",
-    user_gave_sub_problem: (sub_problem) => "emit_event_user_gave_sub_problem",
-    started_tactic: (tactic_id, tactic, sub_problem) => "emit_event_started_tactic",
-    user_messed_up: (user_error) => "emit_event_user_messed_up",
-    tactic_has_made_request: (request, transformed_parameter) => "emit_event_tactic_has_made_request",
-    user_responded_to_request: (response, transformed_response) => "emit_event_user_responded_to_request",
-    finished_tactic: (valid_proof_insert) => "emit_event_finished_tactic",
-    finished_main_problem: (main_problem) => "emit_event_finished_main_problem"
+    user_gave_bad_main_problem: ({}) => "emit_event_user_gave_bad_main_problem",
+    user_gave_main_problem: ({}) => "emit_event_user_gave_main_problem",
+    user_gave_bad_tactic: ({}) => "emit_event_user_gave_bad_tactic",
+    user_gave_tactic: ({}) => "emit_event_user_gave_tactic",
+    user_gave_bad_sub_problem: ({}) => "emit_event_user_gave_bad_sub_problem",
+    user_gave_sub_problem: ({}) => "emit_event_user_gave_sub_problem",
+    started_tactic: ({}) => "emit_event_started_tactic",
+    user_messed_up: ({}) => "emit_event_user_messed_up",
+    tactic_has_made_request: ({}) => "emit_event_tactic_has_made_request",
+    user_responded_to_request: ({}) => "emit_event_user_responded_to_request",
+    finished_tactic: ({}) => "emit_event_finished_tactic",
+    finished_main_problem: ({}) => "emit_event_finished_main_problem"
 }
 
 const default_exceptions: Exceptions = {
     tactic_error: (te: TacticError): string => `exceptions_tactic_error: ${te.message}`,
     invalid_user_error_id: (uid: string): string => `exceptions_invalid_user_error_id: ${uid}`,
-    invalid_user_error_payload: (ue: UserError): string => `exceptions_invalid_user_error_payload: ${ue.id}`,
+    invalid_user_error_payload: <Payload>(ue: UserError<Payload>): string => `exceptions_invalid_user_error_payload: ${ue.id}`,
     invalid_request_id: (rid: string): string => `exceptions_invalid_request_id: ${rid}`,
     invalid_proof_insert: (ipi: InvalidProofInsert) => `exceptions_invalid_proof_insert`
 }

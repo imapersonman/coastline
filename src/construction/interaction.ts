@@ -21,7 +21,7 @@ export interface EmitEvent<Event> {
     user_gave_sub_problem: (sub_problem_id: number, sub_problem: SubProblem) => Event
     user_gave_bad_sub_problem: (sub_problem_id: string) => Event,
     started_tactic: (tactic_id: string, tactic: Tactic<any>, sub_problem: SubProblem) => Event
-    user_messed_up: (user_error: UserError) => Event
+    user_messed_up: (user_error: UserError<any>) => Event
     tactic_has_made_request: (request: Request<any>, transformed_parameter: any) => Event
     user_responded_to_request: (response: any, transformed_response: any) => Event
     finished_tactic: (sub_problem_id: number, valid_proof_insert: ValidProofInsert) => Event,
@@ -38,7 +38,7 @@ export interface Expect<Expectation> {
 export interface Exceptions {
     tactic_error: (te: TacticError) => string
     invalid_user_error_id: (uid: string) => string
-    invalid_user_error_payload: (ue: UserError) => string
+    invalid_user_error_payload: (ue: UserError<any>) => string
     invalid_request_id: (rid: string) => string
     invalid_proof_insert: (ipi: InvalidProofInsert) => string
 }
@@ -86,7 +86,7 @@ export const default_emit: EmitEvent<ConstructorEvent<unknown>> = {
         new ConstructorEvent('user_gave_sub_problem', { sub_problem_id, sub_problem }),
     started_tactic: (tactic_id: string, tactic: Tactic<unknown>, sub_problem: SubProblem) =>
         new ConstructorEvent('started_tactic', { tactic_id, tactic, sub_problem }),
-    user_messed_up: (user_error: UserError) =>
+    user_messed_up: (user_error: UserError<any>) =>
         new ConstructorEvent('user_messed_up', user_error),
     tactic_has_made_request: (request: Request<unknown>, transformed_parameter: unknown) =>
         new ConstructorEvent('tactic_has_made_request', { request, transformed_parameter }),
@@ -101,7 +101,7 @@ export const default_emit: EmitEvent<ConstructorEvent<unknown>> = {
 export const default_exceptions = {
     tactic_error: (te: TacticError) => `Tactic Error:\n${JSON.stringify(te)}`,
     invalid_user_error_id: (uid: string) => `Invalid User Error Id:\n${JSON.stringify(uid)}`,
-    invalid_user_error_payload: (ue: UserError) => `Invalid User Error Payload:\n${JSON.stringify(ue)}`,
+    invalid_user_error_payload: (ue: UserError<any>) => `Invalid User Error Payload:\n${JSON.stringify(ue)}`,
     invalid_request_id: (rid: string) => `Invalid Request Id:\n${JSON.stringify(rid)}`,
     invalid_proof_insert: (ipi: InvalidProofInsert) => `Invalid Proof Insert:\n${JSON.stringify(ipi)}`,
 }
@@ -165,7 +165,7 @@ export function* get_user_selected_tactic_and_sub_problem(tactics: Record<string
     return [tactic_id, tactic, sub_problem_id, selected_sub_problem]
 }
 
-export function* notify_user_about_error(payload_guards: Record<string, (payload: any) => boolean>, user_error: UserError, emit_event: EmitEvent<any>, exceptions: Exceptions) {
+export function* notify_user_about_error(payload_guards: Record<string, (payload: any) => boolean>, user_error: UserError<any>, emit_event: EmitEvent<any>, exceptions: Exceptions) {
     const payload_is_valid = payload_guards[user_error.id]
     if (!defined(payload_is_valid))
         throw new Error(exceptions.invalid_user_error_id(user_error.id))

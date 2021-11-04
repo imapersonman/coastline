@@ -29,14 +29,14 @@ export interface VerifiedInteractionSpecificationTests {
         valid: { test_name: string, sequent: Sequent, responses: any[] }[],
         // An Invalid Tactic Test is a sequent followed by 0 or more responses followed by the user_error that ought to be returned after all the
         // responses are run.
-        invalid: { test_name: string, sequent: Sequent, responses: any[], error: UserError }[]
+        invalid: { test_name: string, sequent: Sequent, responses: any[], error: UserError<any> }[]
     }[],
     request_tests: {
         id: string,
         invalid_parameters: {
             test_name: string,
             parameter: any,
-            error: UserError | TacticError
+            error: UserError<any> | TacticError
         }[]
         valid: {
             test_name: string,
@@ -45,7 +45,7 @@ export interface VerifiedInteractionSpecificationTests {
             invalid_responses: {
                 test_name: string,
                 response: any,
-                error: UserError
+                error: UserError<any>
             }[],
             valid: {
                 test_name: string,
