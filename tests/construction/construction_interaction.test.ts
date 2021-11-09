@@ -17,6 +17,7 @@ import { insert, Insert } from "../../src/construction/insert";
 import { RequestDefinition } from "../../src/construction/request_definition";
 import { unifying_assumption } from "../../src/construction/unifying_assumptions";
 import { emit_defined_or_undefined, get_user_selected_tactic_and_sub_problem, get_valid_main_problem_from_user, notify_user_about_error, notify_user_about_insert, mk_run_interaction, run_response_interaction, Expect, EmitEvent, Exceptions } from "../../src/construction/interaction";
+import { test_generator_expectation } from "./check_generator";
 
 type CheckedGeneratorEntry<Y, R> =
     | { gen: Y, exp: Y }
@@ -299,12 +300,7 @@ test("check_finite_generator_against_array", () => expect(
     check_finite_generator_against_array_tests.map(({}) => ({ result: "PASSED" }))
 ))
 
-const test_generator_expectation = <T = any, I = any, R = any>(name: string, generator: Generator<T, I, R>, expectation: GeneratorExpectation<T, I, R>) => {
-    const actual = check_finite_generator_against_array(generator, expectation, 1000)
-    const expected = [...expectation.yields.map(({ yielded }) => ({ same: yielded })), ...(defined(expectation.returns) ? [{ returned: expectation.returns }] : []), ...(defined(expectation.throws) ? [{ thrown: expectation.throws }] : [])]
-    test(`${name}`, () => expect(actual).toEqual(expected)
-    )
-}
+
 
 const test_expect: Expect<string> = {
     user_to_give_main_problem: () => "expect_user_to_give_main_problem",
