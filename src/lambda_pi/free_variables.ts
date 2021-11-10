@@ -27,5 +27,5 @@ export function differentiate<R>(ast: Ast,
         return fb(ast.bound, ast.type, ast.scope)
     else if (ast instanceof Application)
         return fnb(ast.head, ast.arg)
-    throw new Error("Cannot differentiate an unknown Ast instance")
+    throw new Error(`Cannot differentiate an unknown Ast instance: ${JSON.stringify(ast)}`)
 }
