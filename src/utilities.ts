@@ -16,6 +16,8 @@ export const string_in_array = (stra: string[], str: string): boolean => stra.so
 
 export const replace_at_index = <T>(arr: T[], index: number, replacement: T): T[] => { const ret = arr.slice(); ret.splice(index, 1, replacement); return ret }
 
+export const remove_index = <T>(arr: T[], index: number): T[] => [...arr.slice(0, index), ...arr.slice(index + 1)]
+
 export const invert_string_array = (array: string[]): Record<string, number> =>
     array.length === 0 ? ({})
     : Object.assign({ [array[array.length - 1]]: array.length - 1 }, invert_string_array(array.slice(0, -1)))

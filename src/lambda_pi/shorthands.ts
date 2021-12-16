@@ -1,3 +1,4 @@
+import { first, rest } from "../utilities"
 import { Application, Ast, Constant, GeneratedVariable, IndexedMetaVariable, Lambda, MetaVariable, Pi, TypeKind, Variable } from "./ast"
 
 export const type_k = new TypeKind
@@ -19,4 +20,6 @@ export const iovlist = (...indices: number[]) => indices.map((index) => new Gene
 export const imvlist = (...indices: number[]) => indices.map((index) => new IndexedMetaVariable(index))
 export const nary = <Operands extends Ast[]>(name: string) => (first_operand: Ast, ...operands: Operands): Ast =>
     flapp(con(name), first_operand, ...operands)
-
+export const func_type = (its: Ast[], rt: Ast): Ast =>
+    its.length === 0 ? rt
+    : pi(iv(its.length - 1), first(its), func_type(rest(its), rt))

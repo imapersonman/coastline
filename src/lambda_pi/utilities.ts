@@ -46,7 +46,7 @@ export function ast_to_string(ast: Ast): string {
         return `λ(${ast.bound.id}: ${ast_to_string(ast.type)}).${ast_to_string(ast.scope)}`
     if (ast instanceof Pi)
         return `Π(${ast.bound.id}: ${ast_to_string(ast.type)}).${ast_to_string(ast.scope)}`
-    throw new Error("Can't convert unknown Ast to string")
+    throw new Error(`Can't convert unknown Ast to string:\n${JSON.stringify(ast)}`)
 }
 
 export function max_gv_index_used_in(proof: Ast): number {
