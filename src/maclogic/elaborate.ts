@@ -10,7 +10,7 @@ import { sequent, Sequent } from '../../src/construction/sequent'
 import { absurd, and, exists, forall, i, iff, imp, ml, not, o, or, pred } from './maclogic_shorthands'
 import { S } from './s'
 import { ErrorInAssumptions, ErrorInConclusion, SequentError } from './generic_sequent_error'
-import { first_order_match, match_clause } from '../unification/first_order_match'
+import { unify_clauses, match_clause } from '../unification/first_order_match_clauses'
 import { is_constant, is_variable } from '../lambda_pi/utilities'
 import { SubProblem } from '../construction/check_proof_insert'
 
@@ -160,15 +160,15 @@ export const unelaborate = (ast: Ast): S => {
             return ast.id
         else
             return [ast.id]
-    return first_order_match(ast, [
-        match_clause(not(X), (u) => ['~', unelaborate(u['X'])]),
-        match_clause(and(X, Y), (u) => ['&', unelaborate(u['X']), unelaborate(u['Y'])]),
-        match_clause(imp(X, Y), (u) => ['→', unelaborate(u['X']), unelaborate(u['Y'])]),
-        match_clause(or(X, Y), (u) => ['∨', unelaborate(u['X']), unelaborate(u['Y'])]),
-        match_clause(iff(X, Y), (u) => ['↔', unelaborate(u['X']), unelaborate(u['Y'])]),
-        match_clause(app(con('exists'), X), (u) => declare(u['X'] as Lambda, (l) => ['∃', l.bound.id, unelaborate(l.scope)])),
-        match_clause(app(con('forall'), X), (u) => declare(u['X'] as Lambda, (l) => ['∀', l.bound.id, unelaborate(l.scope)])),
-        match_clause(app(X, Y), (u) => [...unelaborate(u['X']), unelaborate(u['Y'])])
+    return unify_clauses(ast, [
+        match_clause(not(X), (u) => ['~', unelaborate(u('X'))]),
+        match_clause(and(X, Y), (u) => ['&', unelaborate(u('X')), unelaborate(u('Y'))]),
+        match_clause(imp(X, Y), (u) => ['→', unelaborate(u('X')), unelaborate(u('Y'))]),
+        match_clause(or(X, Y), (u) => ['∨', unelaborate(u('X')), unelaborate(u('Y'))]),
+        match_clause(iff(X, Y), (u) => ['↔', unelaborate(u('X')), unelaborate(u('Y'))]),
+        match_clause(app(con('exists'), X), (u) => declare(u('X') as Lambda, (l) => ['∃', l.bound.id, unelaborate(l.scope)])),
+        match_clause(app(con('forall'), X), (u) => declare(u('X') as Lambda, (l) => ['∀', l.bound.id, unelaborate(l.scope)])),
+        match_clause(app(X, Y), (u) => [...unelaborate(u('X')), unelaborate(u('Y'))])
     ], () => ['cool: ' + JSON.stringify(ast)])
 }
 
@@ -176,8 +176,8 @@ export const unelaborate_sequent = (s: Sequent): [S[], S] => {
     const X = mv('X')
     const assumptions_s: S[] = []
     for (const [,type] of s.assumptions.entries()) {
-        first_order_match(type, [
-            match_clause(ml(X), (u) => assumptions_s.push(unelaborate(u['X'])))
+        unify_clauses(type, [
+            match_clause(ml(X), (u) => assumptions_s.push(unelaborate(u('X'))))
         // if no match, don't do anything
         ], () => undefined)
     }

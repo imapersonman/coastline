@@ -67,6 +67,8 @@ export function max_mv_used_in(proof: Ast): number {
     return Math.max(...gv_indices)
 }
 
+export type Binder = Lambda | Pi
+
 export const is_ast = (ast: unknown): ast is Ast => is_type_kind(ast) || is_variable(ast) || is_constant(ast)
     || is_application(ast) || is_lambda(ast) || is_pi(ast) || is_meta_variable(ast)
 export const is_type_kind = (ast: unknown): ast is TypeKind => ast instanceof TypeKind
@@ -75,7 +77,7 @@ export const is_constant = (ast: unknown): ast is Constant => ast instanceof Con
 export const is_application = (ast: unknown): ast is Application => ast instanceof Application
 export const is_lambda = (ast: unknown): ast is Lambda => ast instanceof Lambda
 export const is_pi = (ast: unknown): ast is Pi => ast instanceof Pi
-export const is_binder = (ast: unknown): ast is Lambda | Pi => is_lambda(ast) || is_pi(ast)
+export const is_binder = (ast: unknown): ast is Binder => is_lambda(ast) || is_pi(ast)
 export const is_meta_variable = (ast: unknown): ast is MetaVariable => ast instanceof MetaVariable
 export const is_indexed_meta_variable = (ast: unknown): ast is IndexedMetaVariable => ast instanceof IndexedMetaVariable
 export const is_indexed_variable = (ast: unknown): ast is GeneratedVariable => ast instanceof GeneratedVariable && ast.base_id === ""

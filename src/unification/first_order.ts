@@ -92,11 +92,16 @@ export class AddConflictingSubstitutionEntry {
 
 export function add_to_substitution(sub: Substitution, id: string, ast: Ast): Substitution | AddConflictingSubstitutionEntry {
     const mod_sub = _.mapValues(sub, (entry_value) => meta_substitute(new MetaVariable(id), ast, entry_value))
-    if (mod_sub[id] === undefined)
-        return Object.assign({ [id]: ast }, mod_sub)
-    if (beta_eta_equality(ast, mod_sub[id]))
-        return mod_sub
-    return new AddConflictingSubstitutionEntry(sub, id, mod_sub[id], ast)
+    return simply_add_to_substitution(mod_sub, id, ast)
+}
+
+export function simply_add_to_substitution(sub: Substitution, id: string, ast: Ast): Substitution | AddConflictingSubstitutionEntry {
+    if (sub[id] === undefined)
+        return Object.assign({ [id]: ast }, sub)
+    if (beta_eta_equality(ast, sub[id]))
+        return sub
+    return new AddConflictingSubstitutionEntry(sub, id, sub[id], ast)
+
 }
 
 function pull_out<T>(arr: T[], predicate: (t: T) => boolean): [T | undefined, T[]] {

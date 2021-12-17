@@ -37,8 +37,7 @@ function app_beta_eta_equality(ast1: Ast, ast2: Ast): boolean {
 }
 
 function replace_variable(to_replace: Variable, with_v: Variable, in_ast: Ast, fvs: Variable[]): Ast {
-    return substitute(to_replace, with_v,
-        substitute(with_v, new_variable(fvs, with_v), in_ast))
+    return substitute(to_replace, with_v, substitute(with_v, new_variable(fvs, with_v), in_ast))
 }
 
 function canonical_bodies_beta_eta_equality(ast1: Pi | Lambda, ast2: Pi | Lambda): boolean {
