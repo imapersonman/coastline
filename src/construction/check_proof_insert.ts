@@ -12,6 +12,7 @@ import { IndexedValue } from "./indexed_value"
 import { RelativelyNamedAst } from "./relatively_named_ast"
 import { display_sequent, Sequent, sequent, sequents_equal } from "./sequent"
 import { ast_to_string as ast_to_string } from "../lambda_pi/utilities"
+import { Ctx } from "../logical_framework/ctx"
 
 export class SubProblem { constructor(readonly meta_variable: MetaVariable, readonly sequent: Sequent) {} }
 export const is_sub_problem = (s: any): s is SubProblem => s instanceof SubProblem
@@ -44,10 +45,11 @@ export const is_valid_proof_insert = (v: any): v is ValidProofInsert => v instan
 export const valid_proof_insert = (ast: Ast, used_variables: Variable[], sub_problems: SubProblem[]): ValidProofInsert => new ValidProofInsert(ast, used_variables, sub_problems)
 export type InvalidProofInsert = InvalidProofInsertWithBadFragment | InvalidProofInsertWithBadNewConclusions
 export const is_invalid_proof_insert = (i: any): i is InvalidProofInsert => is_invalid_proof_insert_with_bad_fragment(i) || is_invalid_proof_insert_with_bad_new_conclusions(i)
-export class InvalidProofInsertWithBadFragment { constructor(readonly ast: Ast, readonly sort_error: SortError) {} }
+export class InvalidProofInsertWithBadFragment { constructor(readonly ctx: Ctx, readonly ast: Ast, readonly sort_error: SortError) {} }
 export const is_invalid_proof_insert_with_bad_fragment = (i: any): i is InvalidProofInsertWithBadFragment => i instanceof InvalidProofInsertWithBadFragment
 export const display_invalid_proof_insert_with_bad_fragment = (i: InvalidProofInsertWithBadFragment): object => ({
     did: "InvalidProofInsertWithBadFragment",
+    ctx: i.ctx.entries().map(([id, type]) => [id, ast_to_string(type)]),
     ast: ast_to_string(i.ast),
     sort_error: display_sort_error(i.sort_error)
 })
@@ -66,20 +68,21 @@ export const display_invalid_proof_insert = (i: InvalidProofInsert): object =>
     is_invalid_proof_insert_with_bad_fragment(i) ? display_invalid_proof_insert_with_bad_fragment(i)
     : display_invalid_proof_insert_with_bad_new_conclusions(i)
 
-export const check_proof_insert = (sig: Sig, goal: Sequent, new_conclusions: Ast[], fragment: RelativelyNamedAst, m: IndexedValue<MetaVariable>, v: IndexedValue<Variable>): CheckedProofInsert => {
+export const check_proof_insert = (sig: Sig, outer_ctx: Ctx, goal: Sequent, new_conclusions: Ast[], fragment: RelativelyNamedAst, m: IndexedValue<MetaVariable>, v: IndexedValue<Variable>): CheckedProofInsert => {
     // A pro to generating unique variable and meta-variable names internally is that it doesn't require trusting outside name-generating functions.
     const { ast, variables: vs, meta_variables: mvs } = apply_relatively_named_ast(fragment, m, v)
     const ctxs_at_mvs = ctxs_at_meta_variables(ast, mvs)
     let there_exists_a_sort_error = false
     const checked_sub_problems = ctxs_at_mvs.map((ctx, i) => {
         // Every ctx in ctxs_at_mvs is guarunteed to exist based on how apply_relatively_named_ast works, so I don't mind the !.
-        const report = check_and_report(new Env(sig, ctx!.union(goal.assumptions), mk_map()), new_conclusions[i], type_k)
+        const report = check_and_report(new Env(sig, outer_ctx.union(ctx!.union(goal.assumptions)), mk_map()), new_conclusions[i], type_k)
         there_exists_a_sort_error = there_exists_a_sort_error || report !== true
         return report === true ? new SubProblem(mvs[i], sequent(ctx!, new_conclusions[i])) : new FailedSubProblem(mvs[i], report)
     })
     if (there_exists_a_sort_error)
         return new InvalidProofInsertWithBadNewConclusions(ast, checked_sub_problems)
     const mvs_map = mk_map(...mvs.map((mv, i): [string, Ast] => [mv.id, new_conclusions[i]]))
-    const report = check_and_report(new Env(sig, goal.assumptions, mvs_map), ast, goal.conclusion)
-    return report === true ? new ValidProofInsert(ast, vs, checked_sub_problems as SubProblem[]) : new InvalidProofInsertWithBadFragment(ast, report)
+    const full_ctx = goal.assumptions.union(outer_ctx)
+    const report = check_and_report(new Env(sig, full_ctx, mvs_map), ast, goal.conclusion)
+    return report === true ? new ValidProofInsert(ast, vs, checked_sub_problems as SubProblem[]) : new InvalidProofInsertWithBadFragment(full_ctx, ast, report)
 }

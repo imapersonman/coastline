@@ -1,7 +1,7 @@
 import { binders_of_type_similar } from "../lambda_pi/alpha-equality"
 import { Application, Ast, Constant, MetaVariable, Variable } from "../lambda_pi/ast"
 import { beta_eta_equality } from "../lambda_pi/beta_eta_equality"
-import { Binder, is_application, is_binder, is_constant, is_meta_variable, is_variable } from "../lambda_pi/utilities"
+import { ast_to_string, Binder, is_application, is_binder, is_constant, is_meta_variable, is_variable } from "../lambda_pi/utilities"
 import { AddConflictingSubstitutionEntry, simply_add_to_substitution, Substitution } from "./first_order"
 
 export class LeftConstantDoesNotMatchRight { constructor(readonly l: Constant | Variable, readonly r: Ast) {} }
@@ -75,7 +75,7 @@ export const match = (l: Ast, r: Ast): Substitution | MatchError => {
                 }
             )(l, r, bound)
         }
-        throw new Error('')
+        throw new Error(`Left and Right don't match for some reason:\nleft: ${JSON.stringify(l)}\nright: ${JSON.stringify(r)}`)
     }
     return match_acc([], {}, l, r)
 }

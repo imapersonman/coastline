@@ -140,7 +140,7 @@ export const generate_tested_verified_interaction_specification_test = (vms: Ver
                     const tr = run_tactic_test_without_checking(tactic, sequent, responses)
                     if (!is_insert(tr))
                         return { test_name, result: "FAILED_WITH_NON_INSERT", actual: tr }
-                    const check = check_proof_insert(vms.sig, sequent, tr.new_conclusions, tr.fragment, imv, iv)
+                    const check = check_proof_insert(vms.sig, mk_map(), sequent, tr.new_conclusions, tr.fragment, imv, iv)
                     if (!is_valid_proof_insert(check))
                         return { test_name, result: "FAILED_VALID_PROOF_INSERT_CHECK", error: display_invalid_proof_insert(check) }
                     return { test_name, result: "PASSED" }

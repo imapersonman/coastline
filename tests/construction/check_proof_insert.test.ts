@@ -13,18 +13,20 @@ const kind_s = new KindSort
 run_test(check_proof_insert, [
     "SortError",
     mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [a],
     (m, v) => z,
     // It doesn't matter what I pass in for m and v since they aren't called in the RelativelyNamedAst
     (i) => undefined,
     (i) => undefined,
-    new InvalidProofInsertWithBadFragment(z, new UndeclaredVariable(z))
+    new InvalidProofInsertWithBadFragment(mk_map(["y", a]), z, new UndeclaredVariable(z))
 ])
 
 run_test(check_proof_insert, [
     "1 Sequent",
     mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map(),
     sequent(mk_map(["y", a]), pi(x, a, pi(y, a, type_k))),
     [pi(x, a, a)],
     (m, v) => la(v(1), a, la(v(0), a, app(b, app(m(0), v(0))))),
@@ -39,6 +41,7 @@ run_test(check_proof_insert, [
 run_test(check_proof_insert, [
     "2 Sequents",
     mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [a, pi(x, a, a)],
     (m, v) => app(b, app(m(3), m(-1))),
@@ -53,6 +56,7 @@ run_test(check_proof_insert, [
 run_test(check_proof_insert, [
     "2 Sequents",
     mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [a, pi(x, a, a)],
     (m, v) => app(b, app(m(3), m(-1))),
@@ -67,6 +71,7 @@ run_test(check_proof_insert, [
 run_test(check_proof_insert, [
     "2 SortErrors",
     mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [type_k, z],
     (m, v) => app(m(-1), m(3)),
@@ -81,6 +86,7 @@ run_test(check_proof_insert, [
 run_test(check_proof_insert, [
     "3 undefined (mvs corresponding to given new_conclusions don't appear in fragment)",
     mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map(),
     sequent(mk_map(["y", a]), a),
     [a, a, a],
     (m, v) => y,
@@ -92,6 +98,7 @@ run_test(check_proof_insert, [
 run_test(check_proof_insert, [
     "mixed",
     mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [c, a, a],
     (m, v) => app(m(0), m(1)),
@@ -105,6 +112,7 @@ run_test(check_proof_insert, [
 run_test(check_proof_insert, [
     "indexed variable in ctx and ast (avoided redeclaration error)",
     mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map(),
     sequent(mk_map(["y", a], [iv(0).id, type_k]), pi(x, a, type_k)),
     [],
     (m, v) => la(v(0), a, app(b, y)),
@@ -116,14 +124,34 @@ run_test(check_proof_insert, [
 run_test(check_proof_insert, [
     "indexed variable in ctx and ast (with redeclaration error)",
     mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map(),
     sequent(mk_map(["y", a], [iv(0).id, type_k]), pi(x, a, type_k)),
     [],
     (m, v) => la(v(0), a, app(b, y)),
     imv,
     iv,
     new InvalidProofInsertWithBadFragment(
+        mk_map(["y", a], [iv(0).id, type_k]),
         la(iv(0), a, app(b, y)),
         new BadChildSort(
             la(iv(0), a, app(b, y)),
             new RedeclaredVariable(iv(0))))
 ])
+
+run_test(check_proof_insert, [
+    "indexed variable in ctx and ast (with redeclaration error from outer_ctx)",
+    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_map([iv(1).id, a]),
+    sequent(mk_map(["y", a], [iv(0).id, type_k]), pi(x, a, type_k)),
+    [],
+    (m, v) => la(v(1), a, app(b, y)),
+    imv,
+    iv,
+    new InvalidProofInsertWithBadFragment(
+        mk_map([iv(1).id, a], ["y", a], [iv(0).id, type_k]),
+        la(iv(1), a, app(b, y)),
+        new BadChildSort(
+            la(iv(1), a, app(b, y)),
+            new RedeclaredVariable(iv(1))))
+])
+
