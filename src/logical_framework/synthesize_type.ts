@@ -9,6 +9,8 @@ import { Env } from "./env";
 import { Sig } from "./sig";
 import { BadChildSort, FailedCheck, FailedCheckFamilyOrKind, FailedCheckObjectOrFamily, FailedCheckPi, is_sort_error, RedeclaredVariable, SortError, UndeclaredConstant, UndeclaredMetaVariable, UndeclaredVariable } from "./sort_errors";
 import { BadEntry, FailedCtxCheck } from "./ctx_errors";
+import { to_beta_normal_form } from "../lambda_pi/to_beta_normal_form";
+import { is_ast } from "../lambda_pi/utilities";
 
 const [type_k, kind_s] = [new TypeKind, new KindSort]
 const mt_map = RecursiveMap.empty<Ast>()
@@ -178,7 +180,7 @@ export function synthesize(env: Env, ast: Ast): Sort | SortError {
             return new BadChildSort(ast, new FailedCheck(ast.arg, major_sort.type, minor_sort))
         return substitute(major_sort.bound, ast.arg, major_sort.scope)
     }
-    return pass_synth_or_fail(env, ast,
+    const result = pass_synth_or_fail(env, ast,
         synth_from_type_kind,
         synth_from_constant,
         synth_from_variable,
@@ -186,6 +188,9 @@ export function synthesize(env: Env, ast: Ast): Sort | SortError {
         synth_from_pi,
         synth_from_lambda,
         synth_from_application)
+    if (!is_ast(result))
+        return result
+    return to_beta_normal_form(result)
 }
 
 function pass_synth_or_fail(env: Env, ast: Ast,

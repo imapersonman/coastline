@@ -13,6 +13,7 @@ import { imv, iv } from "../lambda_pi/shorthands";
 import { isEmpty } from "lodash";
 import { VerifiedInteractionSpecification } from "./verified_interaction_specification";
 import { next_indexed_variable_in_sequent } from "./next_indexed_variable_in_sequent";
+import { mk_map } from "../map/RecursiveMap";
 
 export interface EmitEvent<Event> {
     user_gave_bad_main_problem: (data: { main_problem: Sequent, main_problem_error: SequentError }) => Event
@@ -214,7 +215,7 @@ export function* notify_user_about_insert(
     emit_event: EmitEvent<any>,
     exceptions: Exceptions
 ): Generator<any, ValidProofInsert, any> {
-    const checked_proof_insert = check_proof_insert(sig, sp.sequent, insert.new_conclusions, insert.fragment, m, v)
+    const checked_proof_insert = check_proof_insert(sig, mk_map(), sp.sequent, insert.new_conclusions, insert.fragment, m, v)
     if (!is_valid_proof_insert(checked_proof_insert))
         throw new Error(exceptions.invalid_proof_insert(checked_proof_insert))
     yield emit_event.finished_tactic({ sub_problem_id: sp.meta_variable.get_index(), valid_proof_insert: checked_proof_insert })

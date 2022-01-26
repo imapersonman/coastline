@@ -68,17 +68,18 @@ export function max_mv_used_in(proof: Ast): number {
 }
 
 export type Binder = Lambda | Pi
+export type Atom = Constant | Variable
 
-export const is_ast = (ast: unknown): ast is Ast => is_type_kind(ast) || is_variable(ast) || is_constant(ast)
+export const is_ast = (ast: any): ast is Ast => is_type_kind(ast) || is_variable(ast) || is_constant(ast)
     || is_application(ast) || is_lambda(ast) || is_pi(ast) || is_meta_variable(ast)
-export const is_type_kind = (ast: unknown): ast is TypeKind => ast instanceof TypeKind
-export const is_variable = (ast: unknown): ast is Variable => ast instanceof Variable
-export const is_constant = (ast: unknown): ast is Constant => ast instanceof Constant
-export const is_application = (ast: unknown): ast is Application => ast instanceof Application
-export const is_lambda = (ast: unknown): ast is Lambda => ast instanceof Lambda
-export const is_pi = (ast: unknown): ast is Pi => ast instanceof Pi
-export const is_binder = (ast: unknown): ast is Binder => is_lambda(ast) || is_pi(ast)
-export const is_meta_variable = (ast: unknown): ast is MetaVariable => ast instanceof MetaVariable
-export const is_indexed_meta_variable = (ast: unknown): ast is IndexedMetaVariable => ast instanceof IndexedMetaVariable
-export const is_indexed_variable = (ast: unknown): ast is GeneratedVariable => ast instanceof GeneratedVariable && ast.base_id === ""
-export const is_generated_variable = (ast: unknown): ast is GeneratedVariable => ast instanceof GeneratedVariable
+export const is_type_kind = (ast: any): ast is TypeKind => ast instanceof TypeKind
+export const is_variable = (ast: any): ast is Variable => ast instanceof Variable
+export const is_constant = (ast: any): ast is Constant => ast instanceof Constant
+export const is_application = (ast: any): ast is Application => ast instanceof Application
+export const is_lambda = (ast: any): ast is Lambda => ast instanceof Lambda
+export const is_pi = (ast: any): ast is Pi => ast instanceof Pi
+export const is_binder = (ast: any): ast is Binder => is_lambda(ast) || is_pi(ast)
+export const is_meta_variable = (ast: any): ast is MetaVariable => ast instanceof MetaVariable
+export const is_indexed_meta_variable = (ast: any): ast is IndexedMetaVariable => ast instanceof IndexedMetaVariable
+export const is_indexed_variable = (ast: any): ast is GeneratedVariable => ast instanceof GeneratedVariable && ast.base_id === ""
+export const is_generated_variable = (ast: any): ast is GeneratedVariable => ast instanceof GeneratedVariable
