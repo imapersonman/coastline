@@ -19,7 +19,7 @@ const lambda_pi = P.createLanguage({
             const associate = (a: any[]): any[] => a.length === 2 ? a : [associate(a.slice(0, -1)), last(a)]
             return associate(a)
         }),
-    Pi:     (r) => P.seq(P.alt(P.string("P"), P.string("∏")).skip(P.optWhitespace), r.Abstraction).map(([,abstraction]) => ["∏", ...abstraction]),
+    Pi:     (r) => P.seq(P.alt(P.string("P"), P.string("∏"), P.string("Π")).skip(P.optWhitespace), r.Abstraction).map(([,abstraction]) => ["∏", ...abstraction]),
     Lambda: (r) => P.seq(P.alt(P.string("L"), P.string("λ")).skip(P.optWhitespace), r.Abstraction).map(([,abstraction]) => ["λ", ...abstraction]),
     Abstraction: (r) => P.seq(
         P.seq(

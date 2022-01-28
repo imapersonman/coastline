@@ -14,3 +14,4 @@ export const display_sequent = (s: Sequent): object | string | number => ({
     assumptions: display_ctx(s.assumptions),
     conclusion: ast_to_string(s.conclusion)
 })
+export const sequent_to_string = (s: Sequent): string => `${s.assumptions.entries().map(([id, type]) => `${id}: ${ast_to_string(type)}`).join(', ')}${s.assumptions.is_empty() ? "" : " "}⊢ ${ast_to_string(s.conclusion)}`

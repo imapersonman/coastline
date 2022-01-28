@@ -200,5 +200,5 @@ function pass_synth_or_fail(env: Env, ast: Ast,
         if (synthed !== undefined)
             return synthed
     }
-    throw new Error(`Can't synthesize sort of unrecognized Ast:\n${ast}`)
+    throw new Error(`Can't synthesize sort of unrecognized Ast:\n${JSON.stringify(ast)}`)
 }
