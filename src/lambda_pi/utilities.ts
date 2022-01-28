@@ -83,3 +83,18 @@ export const is_meta_variable = (ast: any): ast is MetaVariable => ast instanceo
 export const is_indexed_meta_variable = (ast: any): ast is IndexedMetaVariable => ast instanceof IndexedMetaVariable
 export const is_indexed_variable = (ast: any): ast is GeneratedVariable => ast instanceof GeneratedVariable && ast.base_id === ""
 export const is_generated_variable = (ast: any): ast is GeneratedVariable => ast instanceof GeneratedVariable
+
+export const ast_to_js_string = (ast: Ast): string => {
+    const binder_prefix = (b: Binder): string => is_lambda(b) ? 'la' : 'pi'
+    const atom_prefix = (a: Atom): string => is_constant(a) ? 'con' : 'ov'
+    if (is_binder(ast))
+        return `${binder_prefix(ast)}(${ast_to_js_string(ast.bound)}, ${ast_to_js_string(ast.type)}, ${ast_to_js_string(ast.scope)})`
+    if (is_application(ast))
+        return `app(${ast_to_js_string(ast.head)}, ${ast_to_js_string(ast.arg)})`
+    if (is_indexed_variable(ast))
+        return `iv(${ast.get_index()})`
+    if (is_constant(ast) || is_variable(ast))
+        return `${atom_prefix(ast)}('${ast.id}')`
+    return 'ERROR'
+}
+
