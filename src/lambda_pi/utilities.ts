@@ -91,8 +91,8 @@ export const ast_to_js_string = (ast: Ast): string => {
         return `${binder_prefix(ast)}(${ast_to_js_string(ast.bound)}, ${ast_to_js_string(ast.type)}, ${ast_to_js_string(ast.scope)})`
     if (is_application(ast))
         return `app(${ast_to_js_string(ast.head)}, ${ast_to_js_string(ast.arg)})`
-    if (is_indexed_variable(ast))
-        return `iv(${ast.get_index()})`
+    if (is_generated_variable(ast))
+        return `gv(${ast.get_index()})`
     if (is_constant(ast) || is_variable(ast))
         return `${atom_prefix(ast)}('${ast.id}')`
     return 'ERROR'
