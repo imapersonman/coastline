@@ -79,3 +79,5 @@ export const match = (l: Ast, r: Ast): Substitution | MatchError => {
     }
     return match_acc([], {}, l, r)
 }
+
+export const matches_with = (p: Ast, a: Ast): boolean => !is_match_error(match(p, a))
