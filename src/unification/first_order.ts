@@ -5,13 +5,23 @@ import { substitute } from "../lambda_pi/substitute"
 import { meta_substitute } from "../lambda_pi/meta_substitute"
 import { syntactic_equality } from "../lambda_pi/syntactic_equality"
 import { contains } from "../lambda_pi/contains"
-import { is_object } from "../utilities"
-import { is_ast } from "../lambda_pi/utilities"
+import { defined, is_object } from "../utilities"
+import { ast_to_string, is_ast } from "../lambda_pi/utilities"
 
 export type Substitution = { readonly [key: string]: Ast }
+export const display_substitution = (s: Substitution) => Object.entries(s).map(([mv_id, ast]) => [mv_id, ast_to_string(ast)])
 export const is_substitution = (s: any): s is Substitution => is_object(s) && Object.values(s).every(is_ast)
-type UnificationEquation = [Ast, Ast]
-type UnificationProblem = [Substitution, [Ast, Ast][]]
+export type UnificationEquation = [Ast, Ast]
+export const display_unification_equation = (ue: UnificationEquation) => ({
+    type: 'UnificationEquation',
+    value: [ast_to_string(ue[0]), ast_to_string(ue[1])]
+})
+export type UnificationProblem = [Substitution, [Ast, Ast][]]
+export const display_unification_problem = (up: UnificationProblem) => ({
+    type: 'UnificationProblem',
+    substitution: display_substitution(up[0]),
+    equations: up[1].map(display_unification_equation)
+})
 
 const get_left = (ue: UnificationEquation): Ast => ue[0]
 const get_right = (ue: UnificationEquation): Ast => ue[1]
@@ -24,9 +34,32 @@ const number_of_equations = (up: UnificationProblem) => get_ues(up).length
 type RU<R> = R | undefined
 
 export abstract class UnificationError { constructor(readonly up: UnificationProblem) {} }
+export const display_unification_error = (ue: UnificationError) => {
+    const ue_display = { type: 'UnificationError', up: display_unification_problem(ue.up) }
+    if (ue instanceof ConflictingEquations)
+        return { ...ue_display, ...display_conflicting_equations(ue) }
+    if (ue instanceof RightContainsLeftVariable)
+        return { ...ue_display, ...display_right_contains_left_variable(ue) }
+    if (ue instanceof BadSubstitution)
+        return { ...ue_display, ...display_bad_substitution(ue) }
+    return { ...ue_display, sub_type: 'Unknown' }
+}
 export class ConflictingEquations extends UnificationError { constructor(readonly up: UnificationProblem, readonly equations: UnificationEquation[]) { super(up) } }
+export const display_conflicting_equations = (ce: ConflictingEquations) => ({
+    sub_type: 'ConflictingEquations',
+    equations: ce.equations.map(display_unification_equation)
+})
 export class RightContainsLeftVariable extends UnificationError { constructor(readonly up: UnificationProblem, readonly l: Ast, readonly r: Ast) { super(up) } }
+export const display_right_contains_left_variable = (rl: RightContainsLeftVariable) => ({
+    sub_type: 'RightContainsLeftVariable',
+    l: ast_to_string(rl.l),
+    r: ast_to_string(rl.r)
+})
 export class BadSubstitution extends UnificationError { constructor(readonly up: UnificationProblem, readonly child_error: AddConflictingSubstitutionEntry) { super(up) } }
+export const display_bad_substitution = (bs: BadSubstitution) => ({
+    sub_type: 'BadSubstitution',
+    child_error: display_add_conflicting_substitution_entry(bs.child_error)
+})
 export const is_unification_error = (e: any): e is UnificationError => e instanceof UnificationError
 
 export function unify(up: UnificationProblem): Substitution | UnificationError {
@@ -89,6 +122,13 @@ function delete_ues(ues: UnificationEquation[]): UnificationEquation[] {
 export class AddConflictingSubstitutionEntry {
     constructor(readonly sub: Substitution, readonly id: string, readonly old_ast: Ast, readonly conflicting_ast: Ast) {}
 }
+
+export const display_add_conflicting_substitution_entry = (cs: AddConflictingSubstitutionEntry) => ({
+    type: 'AddConflictingSubstitutionEntry',
+    id: cs.id,
+    old_ast: ast_to_string(cs.old_ast),
+    conflicting_ast: ast_to_string(cs.conflicting_ast)
+})
 
 export function add_to_substitution(sub: Substitution, id: string, ast: Ast): Substitution | AddConflictingSubstitutionEntry {
     const mod_sub = _.mapValues(sub, (entry_value) => meta_substitute(new MetaVariable(id), ast, entry_value))
