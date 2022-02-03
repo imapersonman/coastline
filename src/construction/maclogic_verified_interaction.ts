@@ -17,6 +17,7 @@ import { Ctx } from "../logical_framework/ctx"
 import { is_map } from "../map/is_map"
 import { ThrowingUnifyingAssumption, throwing_unifying_assumption } from "./throwing_unifying_assumption"
 import { is_ast, is_variable } from "../lambda_pi/utilities"
+import maclogic_sig from '../logical_framework/maclogic_sig'
 
 const [o, i] = clist("o", "i")
 const [ml, and, imp, or, iff] = [nary<[]>("ml"), nary<[Ast]>("and"), nary<[Ast]>("imp"), nary<[Ast]>("or"), nary<[Ast]>("iff")]
@@ -33,7 +34,7 @@ const foralle = nary<[Ast, Ast]>("foralli")
 const [X, Y] = mvlist("X", "Y")
 
 export const maclogic_specification: VerifiedInteractionSpecification = {
-    sig: mk_map(
+    sig: maclogic_sig /*mk_map(
         // o, i,
         ["o", type_k],
         ["i", type_k],
@@ -68,7 +69,7 @@ export const maclogic_specification: VerifiedInteractionSpecification = {
         ["iff", try_parse("P(x: o).P(y: o).o")],
         ["dfl", try_parse("P(A: o).P(B: o).P(iff: ml (iff A B)).ml (and (imp A B) (imp B A))")],
         ["dfr", try_parse("P(A: o).P(B: o).P(andp: ml (and (imp A B) (imp B A))).ml (iff A B)")],
-    ),
+    )*/,
     tactics: {
         // close
         "close": function* ({ assumptions, conclusion }) {

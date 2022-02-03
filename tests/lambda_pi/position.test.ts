@@ -1,5 +1,5 @@
-import { ast_pos, get_ast_at, replace_ast_at } from "../../src/lambda_pi/position";
-import { app, con, la, mv, ov, pi, type_k } from "../../src/lambda_pi/shorthands";
+import { ast_pos, first_position_at_ast, get_ast_at, replace_ast_at } from "../../src/lambda_pi/position";
+import { app, con, la, mv, ov, ovlist, pi, type_k } from "../../src/lambda_pi/shorthands";
 
 describe("get_ast_at", () => {
     test("Type", () => expect(
@@ -297,4 +297,23 @@ describe("replace_ast_at", () => {
     ).toEqual(
         app(app(la(ov("x"), con("y"), ov("z")), ov("y")), app(ov("x"), pi(ov("a"), con("b"), ov("c"))))
     ))
+})
+
+describe('first_position_at_ast', () => {
+    // atoms fall under one case, so I'll only really test the recursive Asts.
+    const [a, b, c] = ovlist('a', 'b', 'c')
+    test('root: type_k, finds self', () => expect(first_position_at_ast(type_k, type_k)).toEqual(ast_pos()))
+    test('root: type_k, cannot find', () => expect(first_position_at_ast(type_k, a)).toEqual(undefined))
+    test('root: a b, finds self', () => expect(first_position_at_ast(app(a, b), app(a, b))).toEqual(ast_pos()))
+    test('root: a b, finds head', () => expect(first_position_at_ast(app(a, b), a)).toEqual(ast_pos(0)))
+    test('root: a b, finds arg', () => expect(first_position_at_ast(app(a, b), b)).toEqual(ast_pos(1)))
+    test('root: a b, cannot find', () => expect(first_position_at_ast(app(a, b), c)).toEqual(undefined))
+    // assuming we're using is_binder so there's no use testing the above for pi types.
+    test('root: L(a: b).c, looking for a because cannot find it (ignores bound)', () => expect(first_position_at_ast(la(a, b, c), a)).toEqual(undefined))
+    test('root: L(a: b).c, find self ', () => expect(first_position_at_ast(la(a, b, c), la(a, b, c))).toEqual(ast_pos()))
+    test('root: L(a: b).c, find type', () => expect(first_position_at_ast(la(a, b, c), b)).toEqual(ast_pos(0)))
+    test('root: L(a: b).c, find scope', () => expect(first_position_at_ast(la(a, b, c), c)).toEqual(ast_pos(1)))
+    test('root: L(a: b).c, cannot find', () => expect(first_position_at_ast(la(a, b, c), type_k)).toEqual(undefined))
+    // just one non-trivial test cuz I'm tired.
+    test('root: L(a: (a b)).b a', () => expect(first_position_at_ast(la(a, app(a, b), app(b, a)), b)).toEqual(ast_pos(0, 1)))
 })

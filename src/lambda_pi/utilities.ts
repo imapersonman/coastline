@@ -1,5 +1,5 @@
 import _ from "lodash"
-import { AbstractSyntaxTree, Application, Ast, Constant, GeneratedVariable, IndexedMetaVariable, Lambda, MetaVariable, Pi, TypeKind, Variable } from "./ast";
+import { AbstractSyntaxTree, Application, Ast, Constant, GeneratedVariable, IndexedMetaVariable, Lambda, MetaVariable, NaturalNumber, Pi, TypeKind, Variable } from "./ast";
 import { is_atom } from "./is_atom";
 import { syntactic_equality } from "./syntactic_equality";
 
@@ -75,6 +75,7 @@ export const is_ast = (ast: any): ast is Ast => is_type_kind(ast) || is_variable
 export const is_type_kind = (ast: any): ast is TypeKind => ast instanceof TypeKind
 export const is_variable = (ast: any): ast is Variable => ast instanceof Variable
 export const is_constant = (ast: any): ast is Constant => ast instanceof Constant
+export const is_natural_number = (ast: any): ast is NaturalNumber => ast instanceof NaturalNumber
 export const is_application = (ast: any): ast is Application => ast instanceof Application
 export const is_lambda = (ast: any): ast is Lambda => ast instanceof Lambda
 export const is_pi = (ast: any): ast is Pi => ast instanceof Pi

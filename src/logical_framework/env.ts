@@ -1,8 +1,7 @@
-import { Ast } from "../lambda_pi/ast";
-import { RecursiveMap } from "../map/RecursiveMap";
+import { Ctx } from "./ctx";
+import { Sig } from "./sig";
 
-type Sig = RecursiveMap<Ast>
-type Ctx = RecursiveMap<Ast>
+// type Sig = RecursiveMap<Ast>
 
 export class Env {
     constructor(readonly sig: Sig, readonly ctx: Ctx, readonly mctx: Ctx) {}

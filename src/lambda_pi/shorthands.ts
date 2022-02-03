@@ -1,10 +1,11 @@
 import { first, rest } from "../utilities"
-import { Application, Ast, Constant, GeneratedVariable, IndexedMetaVariable, Lambda, MetaVariable, Pi, TypeKind, Variable } from "./ast"
+import { Application, Ast, Constant, GeneratedVariable, IndexedMetaVariable, Lambda, MetaVariable, NaturalNumber, Pi, TypeKind, Variable } from "./ast"
 
 export const type_k = new TypeKind
 export const app = (h: Ast, a: Ast) => new Application(h, a)
 export const ov = (id: string) => new Variable(id)
 export const con = (id: string) => new Constant(id)
+export const nat = (value: number) => new NaturalNumber(value)
 export const [mv, la, pi] = [(id: string) => new MetaVariable(id), (b: Variable, t: Ast, s: Ast) => new Lambda(b, t, s), (b: Variable, t: Ast, s: Ast) => new Pi(b, t, s)]
 export const gv = (base: string, index: number) => new GeneratedVariable(base, index)
 export const flapp = (head: Ast, arg0: Ast, ...rest_args: Ast[]): Application => {

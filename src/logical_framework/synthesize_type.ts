@@ -10,7 +10,9 @@ import { Sig } from "./sig";
 import { BadChildSort, FailedCheck, FailedCheckFamilyOrKind, FailedCheckObjectOrFamily, FailedCheckPi, is_sort_error, RedeclaredVariable, SortError, UndeclaredConstant, UndeclaredMetaVariable, UndeclaredVariable } from "./sort_errors";
 import { BadEntry, FailedCtxCheck } from "./ctx_errors";
 import { to_beta_normal_form } from "../lambda_pi/to_beta_normal_form";
-import { is_ast } from "../lambda_pi/utilities";
+import { is_ast, is_constant } from "../lambda_pi/utilities";
+import { defined, is_empty } from "../utilities";
+import { Sig2 } from "./sig2";
 
 const [type_k, kind_s] = [new TypeKind, new KindSort]
 const mt_map = RecursiveMap.empty<Ast>()
@@ -24,6 +26,10 @@ function head_key_unique_in_map(map: RecursiveMap<Ast>): boolean {
     return map.tail().lookup(map.head()[0]) instanceof MapLookupKeyNotFound
 }
 
+function head_key_unique_in_sig(sig: Sig2): boolean {
+    return !defined(sig.tail().lookup(sig.head()[0]))
+}
+
 function sort_is_family(env: Env, sort: Sort): boolean {
     const sort_sort = synthesize(env, sort)
     return !is_sort_error(sort_sort) && sorts_equal(sort_sort, new TypeKind)
@@ -33,7 +39,7 @@ function sort_is_family(env: Env, sort: Sort): boolean {
 export function check_sig(sig: Sig): boolean {
     if (sig.is_empty())
         return true
-    if (!head_key_unique_in_map(sig))
+    if (!head_key_unique_in_sig(sig))
         return false
     const sort_sort = synthesize(new Env(sig.tail(), mt_map, mt_map), sig.head()[1])
     return !is_sort_error(sort_sort)
@@ -117,8 +123,8 @@ export function synthesize(env: Env, ast: Ast): Sort | SortError {
     const synth_from_type_kind = (env: Env, ast: Ast) => ast instanceof TypeKind ? kind_s : undefined
     const synth_from_constant = (env: Env, ast: Ast) => {
         if (!(ast instanceof Constant)) return undefined
-        const sort = env.sig.lookup(ast.id)
-        if (sort instanceof MapLookupKeyNotFound) return new UndeclaredConstant(ast)
+        const sort = env.sig.lookup(ast)
+        if (!defined(sort)) return new UndeclaredConstant(ast)
         return sort
     }
     const synth_from_variable = (env: Env, ast: Ast) => {

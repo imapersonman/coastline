@@ -5,6 +5,7 @@ import { sequent } from "../../src/construction/sequent"
 import { check_proof_insert, FailedSubProblem, InvalidProofInsertWithBadFragment, InvalidProofInsertWithBadNewConclusions, SubProblem, ValidProofInsert } from "../../src/construction/check_proof_insert"
 import { KindSort } from "../../src/logical_framework/sort"
 import { run_test } from "../run_test"
+import { mk_sig } from "../../src/logical_framework/sig2"
 
 const [a, b, c] = clist("a", "b", "c")
 const [x, y, z] = ovlist("x", "y", "z")
@@ -12,7 +13,7 @@ const kind_s = new KindSort
 
 run_test(check_proof_insert, [
     "SortError",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [a],
@@ -25,7 +26,7 @@ run_test(check_proof_insert, [
 
 run_test(check_proof_insert, [
     "1 Sequent",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map(),
     sequent(mk_map(["y", a]), pi(x, a, pi(y, a, type_k))),
     [pi(x, a, a)],
@@ -40,7 +41,7 @@ run_test(check_proof_insert, [
 
 run_test(check_proof_insert, [
     "2 Sequents",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [a, pi(x, a, a)],
@@ -55,7 +56,7 @@ run_test(check_proof_insert, [
 
 run_test(check_proof_insert, [
     "2 Sequents",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [a, pi(x, a, a)],
@@ -70,7 +71,7 @@ run_test(check_proof_insert, [
 
 run_test(check_proof_insert, [
     "2 SortErrors",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [type_k, z],
@@ -85,7 +86,7 @@ run_test(check_proof_insert, [
 
 run_test(check_proof_insert, [
     "3 undefined (mvs corresponding to given new_conclusions don't appear in fragment)",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map(),
     sequent(mk_map(["y", a]), a),
     [a, a, a],
@@ -97,7 +98,7 @@ run_test(check_proof_insert, [
 
 run_test(check_proof_insert, [
     "mixed",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map(),
     sequent(mk_map(["y", a]), type_k),
     [c, a, a],
@@ -111,7 +112,7 @@ run_test(check_proof_insert, [
 
 run_test(check_proof_insert, [
     "indexed variable in ctx and ast (avoided redeclaration error)",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map(),
     sequent(mk_map(["y", a], [iv(0).id, type_k]), pi(x, a, type_k)),
     [],
@@ -123,7 +124,7 @@ run_test(check_proof_insert, [
 
 run_test(check_proof_insert, [
     "indexed variable in ctx and ast (with redeclaration error)",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map(),
     sequent(mk_map(["y", a], [iv(0).id, type_k]), pi(x, a, type_k)),
     [],
@@ -140,7 +141,7 @@ run_test(check_proof_insert, [
 
 run_test(check_proof_insert, [
     "indexed variable in ctx and ast (with redeclaration error from outer_ctx)",
-    mk_map(["a", type_k], ["b", pi(x, a, type_k)]),
+    mk_sig([a, type_k], [b, pi(x, a, type_k)]),
     mk_map([iv(1).id, a]),
     sequent(mk_map(["y", a], [iv(0).id, type_k]), pi(x, a, type_k)),
     [],

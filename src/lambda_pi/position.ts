@@ -1,8 +1,9 @@
-import { all_but_last, first, is_empty, last, rest } from "../utilities"
+import { all_but_last, defined, first, is_empty, last, rest } from "../utilities"
 import { Ast } from "./ast"
 import { children_of } from "./children_of"
 import { is_atom } from "./is_atom"
 import { app, la } from "./shorthands"
+import { syntactic_equality } from "./syntactic_equality"
 import { is_application, is_binder } from "./utilities"
 
 // A Position represents a location where an Ast can be replaced within a given root Ast.
@@ -50,4 +51,28 @@ export const replace_ast_at = (root: Ast, position: Position, with_ast: Ast): As
         else
             return root
     throw new Error(`Input is not an Ast: ${JSON.stringify(root)}`)
+}
+
+export const first_position_at_ast = (root: Ast, ast: Ast): Position | undefined => {
+    if (syntactic_equality(ast, root))
+        return ast_pos()
+    if (is_application(root)) {
+        const head_pos = first_position_at_ast(root.head, ast)
+        if (defined(head_pos))
+            return [0, ...head_pos]
+        const arg_pos = first_position_at_ast(root.arg, ast)
+        if (defined(arg_pos))
+            return [1, ...arg_pos]
+        return undefined
+    }
+    if (is_binder(root)) {
+        const type_pos = first_position_at_ast(root.type, ast)
+        if (defined(type_pos))
+            return [0, ...type_pos]
+        const scope_pos = first_position_at_ast(root.scope, ast)
+        if (defined(scope_pos))
+            return [1, ...scope_pos]
+        return undefined
+    }
+    return undefined
 }

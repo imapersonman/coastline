@@ -5,6 +5,7 @@
 // - an Application
 // - a Pi
 
+import { is_integer } from "../utilities";
 import { AbstractIdentifier, AbstractApplication, AbstractAbstraction } from "./abstract";
 
 // - a TypeKind
@@ -14,6 +15,14 @@ export type Ast = AbstractSyntaxTree
 export class TypeKind implements AbstractSyntaxTree {}
 
 export class Constant extends AbstractIdentifier<string> implements AbstractSyntaxTree {}
+
+export class NaturalNumber extends Constant {
+    constructor(readonly value: number) {
+        super(`${value}`)
+        if (!is_integer(value) || value < 0)
+            throw new Error(`Cannot construct the natural number ${value}`)
+    }
+}
 
 export class Variable extends AbstractIdentifier<string> implements AbstractSyntaxTree {
     get_index(): number { return 0 }
