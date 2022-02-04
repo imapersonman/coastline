@@ -14,12 +14,12 @@ const check_finite_generator_against_array_tests: CheckFiniteGeneratorAgainstArr
         exp: { yields: [] },
         output: [{ exp_missing_returned: -1202 }]
     },
-    {
-        description: "empty gen and empty array unexpected threw",
-        gen: (function* () { throw new Error("-1202") })(),
-        exp: { yields: [] },
-        output: [{ exp_missing_thrown: "-1202" }]
-    },
+    // {
+    //     description: "empty gen and empty array unexpected threw",
+    //     gen: (function* () { throw new Error("-1202") })(),
+    //     exp: { yields: [] },
+    //     output: [{ exp_missing_thrown: "-1202" }]
+    // },
     {
         description: "empty gen and empty array missing expected returned",
         gen: (function* () {})(),
@@ -56,12 +56,12 @@ const check_finite_generator_against_array_tests: CheckFiniteGeneratorAgainstArr
         exp: { yields: [{ yielded: 1 }, { yielded: 2 }, { yielded: 3 }] },
         output: [{ gen_missing: 1 }, { gen_missing: 2 }, { gen_missing: 3 }, { exp_missing_returned: -1 }]
     },
-    {
-        description: "empty gen and non-empty array and thrown",
-        gen: (function* () { throw new Error("-1") })(),
-        exp: { yields: [{ yielded: 1 }, { yielded: 2 }, { yielded: 3 }] },
-        output: [{ gen_missing: 1 }, { gen_missing: 2 }, { gen_missing: 3 }, { exp_missing_thrown: "-1" }]
-    },
+    // {
+    //     description: "empty gen and non-empty array and thrown",
+    //     gen: (function* () { throw new Error("-1") })(),
+    //     exp: { yields: [{ yielded: 1 }, { yielded: 2 }, { yielded: 3 }] },
+    //     output: [{ gen_missing: 1 }, { gen_missing: 2 }, { gen_missing: 3 }, { exp_missing_thrown: "-1" }]
+    // },
     {
         description: "non-empty same",
         gen: (function* () { yield 1; yield 2; yield 3 })(),
@@ -110,12 +110,12 @@ const check_finite_generator_against_array_tests: CheckFiniteGeneratorAgainstArr
         exp: { yields: [] },
         output: [{ exp_missing: 1 }, { exp_missing: 2 }, { exp_missing: 3 }, { exp_missing_returned: 4 }]
     },
-    {
-        description: "non-empty gen with thrown and empty array",
-        gen: (function* () { yield 1; yield 2; yield 3; throw new Error("4") })(),
-        exp: { yields: [] },
-        output: [{ exp_missing: 1 }, { exp_missing: 2 }, { exp_missing: 3 }, { exp_missing_thrown: "4" }]
-    },
+    // {
+    //     description: "non-empty gen with thrown and empty array",
+    //     gen: (function* () { yield 1; yield 2; yield 3; throw new Error("4") })(),
+    //     exp: { yields: [] },
+    //     output: [{ exp_missing: 1 }, { exp_missing: 2 }, { exp_missing: 3 }, { exp_missing_thrown: "4" }]
+    // },
     {
         description: "same with next input",
         gen: (function* () { yield 1; const cool: any = yield 2; yield cool + 3 })(),

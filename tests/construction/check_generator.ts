@@ -65,6 +65,8 @@ export const check_finite_generator_against_array = <Y, R, I>(gen: Generator<Y, 
                     it = gen.next()
             } catch (error) {
                 thrown = (error as Error).message
+                if (!defined(exp.throws))
+                    throw error
                 // output.push({ exp_missing_thrown: (error as Error).message })
                 break
             } finally {
@@ -111,7 +113,8 @@ export const check_finite_generator_against_array = <Y, R, I>(gen: Generator<Y, 
         const output: CheckedGeneratorEntry<Y, R>[] = []
         for (let remaining_index = 0; remaining_index < exp.yields.length; remaining_index++)
             output.push({ gen_missing: exp.yields[remaining_index].yielded })
-        output.push({ exp_missing_thrown: thrown })
+        throw error
+        // output.push({ exp_missing_thrown: thrown })
         return output
     }
 }
@@ -143,6 +146,8 @@ export const partially_check_generator= <Y, R, I>(gen: Generator<Y, R>, exp: Gen
                     it = gen.next()
             } catch (error) {
                 thrown = (error as Error).message
+                if (!defined(exp.throws))
+                    throw error
                 // output.push({ exp_missing_thrown: (error as Error).message })
                 break
             } finally {

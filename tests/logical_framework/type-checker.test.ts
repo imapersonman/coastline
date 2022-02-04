@@ -117,7 +117,7 @@ test_synthesize("variable not in ctx", mk_sig([a, type_k]), mk_map(["y", a]), x,
 // a
 test_synthesize("constant variable same id", mk_sig([x, type_k], [a, type_k]), mk_map(["x", a]), x, a)
 // Type
-test_synthesize("variable constant same id", mk_sig([x, type_k], [a, type_k]), mk_map(["x", a]), new Constant("x"), type_k)
+test_synthesize("variable constant same id", mk_sig([new Constant("x"), type_k], [a, type_k]), mk_map(["x", a]), new Constant("x"), type_k)
 // [a: Type, b: Type], [x: Px:a.b, y: a], x(y) |-> b
 test_synthesize("app", mk_sig([a, type_k], [b, type_k]), mk_map<Ast>(["x", P(x, a, b)], ["y", a]), A(x, y), b)
 // [a: Type, b: Type], [y: a], (Lx:a.b)(y) |-> Type

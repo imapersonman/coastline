@@ -8,7 +8,7 @@ import { mk_map } from "../../src/map/RecursiveMap"
 import { ConflictingEquations } from "../../src/unification/first_order"
 import { maclogic_specification } from "../../src/construction/maclogic_verified_interaction"
 
-test("maclogic interaction specification", () =>
+test.skip("maclogic interaction specification", () =>
     expect(
         generate_successful_verified_interaction_specification_test(maclogic_tests)
     ).toEqual(

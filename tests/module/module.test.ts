@@ -3,32 +3,46 @@ import { mvs_in } from "../../src/lambda_pi/mvs_in"
 import { app, clist, con, flapp, func_type, mvlist, nat, ovlist, pi, type_k } from "../../src/lambda_pi/shorthands"
 import { is_constant, is_natural_number } from "../../src/lambda_pi/utilities"
 import { Ctx } from "../../src/logical_framework/ctx"
+import { Env } from "../../src/logical_framework/env"
 import { Sig } from "../../src/logical_framework/sig"
-import { mk_sig } from "../../src/logical_framework/sig2"
+import { mk_sig, nn_key, SigKey } from "../../src/logical_framework/sig2"
 import { Sort } from "../../src/logical_framework/sort"
-import { SortError, UndeclaredConstant } from "../../src/logical_framework/sort_errors"
+import { is_sort_error, SortError, UndeclaredConstant } from "../../src/logical_framework/sort_errors"
+import { synthesize } from "../../src/logical_framework/synthesize_type"
 import { and } from "../../src/maclogic/maclogic_shorthands"
 import { mk_map, RecursiveMap } from "../../src/map/RecursiveMap"
 import { AddConflictingSubstitutionEntry, Substitution } from "../../src/unification/first_order"
 import { defined, first, is_empty, rest } from "../../src/utilities"
 
+// PROBLEM:
+// what if we have this sort of thing?
+// N: Type
+// 1: Type
+// <nat>: N
+// Then what is 1's type?
+// The simplest solution would be to make this impossible.
 
 const [a, b, c, d] = clist('a', 'b', 'c', 'd')
 const [x, y, z, u, v] = ovlist('x', 'y', 'z', 'u', 'v')
 
-
-class ConstantDeclaration { constructor(readonly constant: Constant, readonly sort: Ast) {} }
-const decl_constant = (constant: Constant, sort: Ast): ConstantDeclaration => new ConstantDeclaration(constant, sort)
+class ConstantDeclaration { constructor(readonly identifier: SigKey, readonly sort: Ast) {} }
+const decl_constant = (constant: SigKey, sort: Ast): ConstantDeclaration => new ConstantDeclaration(constant, sort)
 const is_constant_declaration = (cd: unknown): cd is ConstantDeclaration => cd instanceof ConstantDeclaration
 
-const synthesize_constant_declaration = (module: Module, decl: ConstantDeclaration): Module | ConstantRedeclaration | BadSortDeclaration => {
-    const previous_sort = module.signature.lookup(decl.constant)
+const synthesize_constant_declaration = (module: Module, decl: ConstantDeclaration): Module | IdentifierRedeclaration | BadSortDeclaration => {
+    const previous_sort = module.signature.lookup(decl.identifier)
     if (defined(previous_sort))
-        return constant_redeclaration(decl)
-    throw new Error('unimplemented')
+        return identifier_redeclaration(decl)
+    const sort_sort = synthesize(new Env(module.signature, module.type_context, mk_map()), decl.sort)
+    if (is_sort_error(sort_sort))
+        return bad_sort_declaration(decl, sort_sort)
+    return {
+        ...module,
+        signature: module.signature.add(decl.identifier, decl.sort)
+    }
 }
 
-describe.skip('synthesize_constant_declaration', () => {
+describe.only('synthesize_constant_declaration', () => {
     test('given empty sig, valid', () => expect(
         synthesize_constant_declaration(empty_module, decl_constant(a, type_k))
     ).toEqual({
@@ -65,34 +79,87 @@ describe.skip('synthesize_constant_declaration', () => {
             decl_constant(a, type_k)
         )
     ).toEqual(
-        constant_redeclaration(decl_constant(a, type_k))
+        identifier_redeclaration(decl_constant(a, type_k))
     ))
 })
 
+// I'm going to have to change how equality works if I want everything to type-check properly and that's lame.
+// Don't think about it yet.
 class DefinitionDeclaration { constructor(readonly variable: Variable, readonly sort: Ast, readonly definition: Ast) {} }
 const decl_definition = (variable: Variable, sort: Ast, def: Ast): DefinitionDeclaration => new DefinitionDeclaration(variable, sort, def)
 const is_definition_declaration = (d: unknown): d is DefinitionDeclaration => d instanceof DefinitionDeclaration
 
-const synthesize_definition_declaration = (module: Module, decl: DefinitionDeclaration): Module | VariableRedeclaration | DefinitionDoesNotSynthesize | BadSortDeclaration => {
+const synthesize_definition_declaration = (module: Module, decl: DefinitionDeclaration): Module | IdentifierRedeclaration | DefinitionDoesNotSynthesize | BadSortDeclaration => {
     throw new Error('unimplemented')
 }
 
-class NaturalNumberDeclaration { constructor(readonly nn_sort: Ast) {} }
-const decl_natural_numbers = (nn_sort: Ast): NaturalNumberDeclaration => new NaturalNumberDeclaration(nn_sort)
-const is_natural_numbers_declaration = (n: NaturalNumberDeclaration): n is NaturalNumberDeclaration => n instanceof NaturalNumberDeclaration
+// class NaturalNumberDeclaration { constructor(readonly nn_sort: Ast) {} }
+// const decl_natural_numbers = (nn_sort: Ast): NaturalNumberDeclaration => new NaturalNumberDeclaration(nn_sort)
+// const is_natural_numbers_declaration = (n: NaturalNumberDeclaration): n is NaturalNumberDeclaration => n instanceof NaturalNumberDeclaration
 
-const synthesize_natural_number_declaration = (module: Module, decl: NaturalNumberDeclaration): Module | BadSortDeclaration => {
-    throw new Error('unimplemented')
-}
+// // a constant redeclaration can occur if we attempt to declare the natural numbers twice.
+// const synthesize_natural_number_declaration = (module: Module, decl: NaturalNumberDeclaration): Module | IdentifierRedeclaration | BadSortDeclaration => {
+//     const previous_sort = module.signature.lookup('N')
+//     if (defined(previous_sort))
+//         return identifier_redeclaration()
+//     const sort_sort = synthesize(new Env(module.signature, module.type_context, mk_map()), decl.sort)
+//     if (is_sort_error(sort_sort))
+//         return bad_sort_declaration(decl, sort_sort)
+//     return {
+//         ...module,
+//         signature: module.signature.add(decl.constant, decl.sort)
+//     }
+// }
+
+// describe('synthesize_natural_number_declaration', () => {
+//     test('given empty sig, valid', () => expect(
+//         synthesize_natural_number_declaration(empty_module, decl_natural_numbers(type_k))
+//     ).toEqual({
+//         signature: mk_sig(['N', type_k]),
+//         definitions: mk_map(),
+//         type_context: mk_map()
+//     }))
+//     test('given empty sig, invalid type', () => expect(
+//         synthesize_natural_number_declaration(empty_module, decl_natural_numbers(b))
+//     ).toEqual(
+//         bad_sort_declaration(decl_natural_numbers(b), new UndeclaredConstant(b))
+//     ))
+//     test('given non-empty sig, valid, depending on constant and variable', () => expect(
+//         synthesize_natural_number_declaration(
+//             {
+//                 signature: mk_sig([a, type_k], [b, pi(x, a, type_k)]),
+//                 definitions: mk_map(),
+//                 type_context: mk_map(['x', a])
+//             },
+//             decl_natural_numbers(app(b, x))
+//         )
+//     ).toEqual({
+//         signature: mk_sig([a, type_k], [b, pi(x, a, type_k)], ['N', app(b, x)]),
+//         definitions: mk_map(),
+//         type_context: mk_map(['x', a])
+//     }))
+//     test('given non-empty sig, constant redeclaration', () => expect(
+//         synthesize_natural_number_declaration(
+//             {
+//                 signature: mk_sig([a, type_k]),
+//                 definitions: mk_map(),
+//                 type_context: mk_map()
+//             },
+//             decl_natural_numbers(type_k)
+//         )
+//     ).toEqual(
+//         identifier_redeclaration(decl_constant(a, type_k))
+//     ))
+// })
 
 type Declaration =
     | ConstantDeclaration
-    | NaturalNumberDeclaration
+    // | NaturalNumberDeclaration
     | DefinitionDeclaration
 
-class ConstantRedeclaration { constructor(readonly decl: ConstantDeclaration) {} }
-const constant_redeclaration = (decl: ConstantDeclaration): ConstantRedeclaration => new ConstantRedeclaration(decl)
-const is_constant_redeclaration = (r: unknown): r is ConstantRedeclaration => r instanceof ConstantRedeclaration
+class IdentifierRedeclaration { constructor(readonly decl: ConstantDeclaration) {} }
+const identifier_redeclaration = (decl: ConstantDeclaration): IdentifierRedeclaration => new IdentifierRedeclaration(decl)
+const is_identifier_redeclaration = (r: unknown): r is IdentifierRedeclaration => r instanceof IdentifierRedeclaration
 
 class BadSortDeclaration { constructor(readonly decl: Declaration, readonly sort_error: SortError) {} }
 const bad_sort_declaration = (decl: Declaration, sort_error: SortError): BadSortDeclaration => new BadSortDeclaration(decl, sort_error)
@@ -107,7 +174,7 @@ const definition_does_not_synthesize = (decl: DefinitionDeclaration, sort_error:
 const is_definition_does_not_synthesize = (d: unknown): d is DefinitionDoesNotSynthesize => d instanceof DefinitionDoesNotSynthesize
 
 type BadDeclaration =
-    | ConstantRedeclaration
+    | IdentifierRedeclaration
     | VariableRedeclaration
     | DefinitionDoesNotSynthesize
     | BadSortDeclaration
@@ -145,24 +212,24 @@ const invalid_single_constant_module = make_module_spec([
 
 const simple_nat_module = make_module_spec([
     decl_constant(N, type_k),
-    decl_natural_numbers(N)
+    decl_constant(nn_key, N)
 ])
 
 const invalid_simple_nat_module_bad_first = make_module_spec([
     decl_constant(N, con('cool')),
-    decl_natural_numbers(N)
+    decl_constant(nn_key, N)
 ])
 
 const invalid_simple_nat_module_bad_second = make_module_spec([
     decl_constant(N, type_k),
-    decl_natural_numbers(con('cool'))
+    decl_constant(nn_key, con('cool'))
 ])
 
 const nat_module = make_module_spec([
     decl_constant(N, type_k),
     decl_constant(O, N),
     decl_constant(S, func_type([N], N)),
-    decl_natural_numbers(N),
+    decl_constant(nn_key, N),
     decl_constant(plus, func_type([N, N], N)),
 
     decl_constant(eq, func_type([N, N], type_k)),
@@ -200,7 +267,7 @@ const synthesize_module = (spec: ModuleSpec): Module | ModuleSynthesisError => {
     throw new Error('unimplemented')
 }
 
-describe.skip('synthesize module', () => {
+describe('synthesize module', () => {
     test('empty', () => expect(synthesize_module(empty_module_spec)).toEqual(empty_module))
     test('single constant module', () => expect(
         synthesize_module(single_constant_module)
@@ -232,7 +299,7 @@ describe.skip('synthesize module', () => {
             bad_sort_declaration(decl_constant(N, con('cool')), new UndeclaredConstant(con('cool'))),
             empty_module,
             make_module_spec([
-                decl_natural_numbers(N)
+                decl_constant(nn_key, N)
             ])
         )
     ))
@@ -242,7 +309,7 @@ describe.skip('synthesize module', () => {
         bad_child_module(
             decl_constant(N, type_k),
             bad_declaration_in_module(
-                bad_sort_declaration(decl_natural_numbers(N), new UndeclaredConstant(con('cool'))),
+                bad_sort_declaration(decl_constant(nn_key, N), new UndeclaredConstant(con('cool'))),
                 {
                     signature: mk_sig([N, type_k], ['N', N]),
                     definitions: mk_map(),
