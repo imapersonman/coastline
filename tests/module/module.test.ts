@@ -1,48 +1,25 @@
-import { Ast, Constant, MetaVariable, Variable } from "../../src/lambda_pi/ast"
-import { mvs_in } from "../../src/lambda_pi/mvs_in"
-import { app, clist, con, flapp, func_type, mvlist, nat, ovlist, pi, type_k } from "../../src/lambda_pi/shorthands"
-import { is_constant, is_natural_number } from "../../src/lambda_pi/utilities"
-import { Ctx } from "../../src/logical_framework/ctx"
-import { Env } from "../../src/logical_framework/env"
-import { Sig } from "../../src/logical_framework/sig"
-import { mk_sig, nn_key, SigKey } from "../../src/logical_framework/sig2"
-import { Sort } from "../../src/logical_framework/sort"
-import { is_sort_error, SortError, UndeclaredConstant } from "../../src/logical_framework/sort_errors"
-import { synthesize } from "../../src/logical_framework/synthesize_type"
-import { and } from "../../src/maclogic/maclogic_shorthands"
-import { mk_map, RecursiveMap } from "../../src/map/RecursiveMap"
-import { AddConflictingSubstitutionEntry, Substitution } from "../../src/unification/first_order"
-import { defined, first, is_empty, rest } from "../../src/utilities"
+import { Ast } from "../../src/lambda_pi/ast"
+import { app, clist, con, flapp, func_type, nat, ov, ovlist, pi, type_k } from "../../src/lambda_pi/shorthands"
+import { mk_sig, nn_key } from "../../src/logical_framework/sig2"
+import { kind_s } from "../../src/logical_framework/sort"
+import { FailedCheck, UndeclaredConstant } from "../../src/logical_framework/sort_errors"
+import { mk_map } from "../../src/map/RecursiveMap"
+import { bad_child_module, bad_declaration_in_module, bad_sort_declaration, decl_constant, decl_definition, empty_module, empty_module_spec, identifier_redeclaration, invalid_identifier, make_module_spec, synthesize_constant_declaration, synthesize_definition_declaration, synthesize_module } from "../../src/module/module"
 
-// PROBLEM:
+// PROBLEM (solved):
 // what if we have this sort of thing?
 // N: Type
 // 1: Type
 // <nat>: N
 // Then what is 1's type?
-// The simplest solution would be to make this impossible.
+// The simplest solution would be to make it impossible to declare integers directly, so it would be _1: N (or something) instead of 1: N.
+
+// Variables can't have the same id as previously declared Constants, and Constants can't have the same id as previously declared Variables.
 
 const [a, b, c, d] = clist('a', 'b', 'c', 'd')
 const [x, y, z, u, v] = ovlist('x', 'y', 'z', 'u', 'v')
 
-class ConstantDeclaration { constructor(readonly identifier: SigKey, readonly sort: Ast) {} }
-const decl_constant = (constant: SigKey, sort: Ast): ConstantDeclaration => new ConstantDeclaration(constant, sort)
-const is_constant_declaration = (cd: unknown): cd is ConstantDeclaration => cd instanceof ConstantDeclaration
-
-const synthesize_constant_declaration = (module: Module, decl: ConstantDeclaration): Module | IdentifierRedeclaration | BadSortDeclaration => {
-    const previous_sort = module.signature.lookup(decl.identifier)
-    if (defined(previous_sort))
-        return identifier_redeclaration(decl)
-    const sort_sort = synthesize(new Env(module.signature, module.type_context, mk_map()), decl.sort)
-    if (is_sort_error(sort_sort))
-        return bad_sort_declaration(decl, sort_sort)
-    return {
-        ...module,
-        signature: module.signature.add(decl.identifier, decl.sort)
-    }
-}
-
-describe.only('synthesize_constant_declaration', () => {
+describe('synthesize_constant_declaration', () => {
     test('given empty sig, valid', () => expect(
         synthesize_constant_declaration(empty_module, decl_constant(a, type_k))
     ).toEqual({
@@ -69,6 +46,20 @@ describe.only('synthesize_constant_declaration', () => {
         definitions: mk_map(),
         type_context: mk_map(['x', a])
     }))
+    test('given non-empty sig, valid, depending on constant and variable, but with the natural number SigKey', () => expect(
+        synthesize_constant_declaration(
+            {
+                signature: mk_sig([a, type_k], [b, pi(x, a, type_k)]),
+                definitions: mk_map(),
+                type_context: mk_map(['x', a])
+            },
+            decl_constant(nn_key, app(b, x))
+        )
+    ).toEqual({
+        signature: mk_sig([a, type_k], [b, pi(x, a, type_k)], [nn_key, app(b, x)]),
+        definitions: mk_map(),
+        type_context: mk_map(['x', a])
+    }))
     test('given non-empty sig, constant redeclaration', () => expect(
         synthesize_constant_declaration(
             {
@@ -81,119 +72,124 @@ describe.only('synthesize_constant_declaration', () => {
     ).toEqual(
         identifier_redeclaration(decl_constant(a, type_k))
     ))
+    test('given non-empty ctx, identifier redeclaration because of clash with variable', () => expect(
+        synthesize_constant_declaration(
+            {
+                signature: mk_sig([a, type_k]),
+                definitions: mk_map(),
+                type_context: mk_map(['b', a])
+            },
+            decl_constant(b, type_k)
+        )
+    ).toEqual(
+        identifier_redeclaration(decl_constant(b, type_k))
+    ))
+    test('trying to declare a natural number directly is invalid', () => expect(
+        synthesize_constant_declaration(
+            {
+                signature: mk_sig([a, type_k], [b, pi(x, a, type_k)]),
+                definitions: mk_map(),
+                type_context: mk_map(['x', a])
+            },
+            decl_constant(nat(1), type_k)
+        )
+    ).toEqual(
+        invalid_identifier(decl_constant(nat(1), type_k))
+    ))
+    test('trying to declare the natural numbers twice is invalid', () => expect(
+        synthesize_constant_declaration(
+            {
+                signature: mk_sig([a, type_k], [nn_key, pi(x, a, type_k)]),
+                definitions: mk_map(),
+                type_context: mk_map(['x', a])
+            },
+            decl_constant(nn_key, type_k)
+        )
+    ).toEqual(
+        identifier_redeclaration(decl_constant(nn_key, type_k))
+    ))
 })
 
-// I'm going to have to change how equality works if I want everything to type-check properly and that's lame.
-// Don't think about it yet.
-class DefinitionDeclaration { constructor(readonly variable: Variable, readonly sort: Ast, readonly definition: Ast) {} }
-const decl_definition = (variable: Variable, sort: Ast, def: Ast): DefinitionDeclaration => new DefinitionDeclaration(variable, sort, def)
-const is_definition_declaration = (d: unknown): d is DefinitionDeclaration => d instanceof DefinitionDeclaration
+describe('synthesize_definition_declaration', () => {
+    test('given empty ctx, non-empty sig, valid', () => expect(
+        synthesize_definition_declaration(
+            {
+                signature: mk_sig([a, type_k], [b, a]),
+                definitions: mk_map(),
+                type_context: mk_map()
+            },
+            decl_definition(x, a, b)
+        )
+    ).toEqual({
+        signature: mk_sig([a, type_k], [b, a]),
+        definitions: mk_map(['x', b]),
+        type_context: mk_map(['x', a])
+    }))
+    test('given non-empty ctx and depends on it, non-empty sig, valid', () => expect(
+        synthesize_definition_declaration(
+            {
+                signature: mk_sig([a, type_k], [b, a]),
+                // not every variable needs a definition
+                definitions: mk_map(['z', b]),
+                type_context: mk_map(['z', a], ['y', a])
+            },
+            decl_definition(x, a, y)
+        )
+    ).toEqual({
+        signature: mk_sig([a, type_k], [b, a]),
+        definitions: mk_map(['z', b], ['x', y]),
+        type_context: mk_map(['z', a], ['y', a], ['x', a])
+    }))
+    test('given sort does not check to Type', () => expect(
+        synthesize_definition_declaration(
+            {
+                signature: mk_sig([a, type_k], [b, a]),
+                definitions: mk_map(),
+                type_context: mk_map()
+            },
+            decl_definition(x, type_k, a)
+        )
+    ).toEqual(
+        bad_sort_declaration(decl_definition(x, type_k, a), new FailedCheck(type_k, type_k, kind_s))
+    ))
+    test('given non-empty sig, redeclaration of constant', () => expect(
+        synthesize_definition_declaration(
+            {
+                signature: mk_sig([a, type_k], [b, a], [c, a], [d, type_k]),
+                definitions: mk_map(),
+                type_context: mk_map()
+            },
+            decl_definition(ov('d'), a, b)
+        )
+    ).toEqual(
+        identifier_redeclaration(decl_definition(ov('d'), a, b))
+    ))
+    test('given non-empty sig and ctx, redeclaration of variable', () => expect(
+        synthesize_definition_declaration(
+            {
+                signature: mk_sig([a, type_k]),
+                definitions: mk_map(),
+                type_context: mk_map(['x', a])
+            },
+            decl_definition(x, a, b)
+        )
+    ).toEqual(
+        identifier_redeclaration(decl_definition(x, a, b))
+    ))
+    test('given non-empty sig and ctx, definition sort does not check to given sort', () => expect(
+        synthesize_definition_declaration(
+            {
+                signature: mk_sig([a, type_k], [b, type_k], [c, b]),
+                definitions: mk_map(),
+                type_context: mk_map(['x', a])
+            },
+            decl_definition(x, a, c)
+        )
+    ).toEqual(
+        identifier_redeclaration(decl_definition(x, a, c))
+    ))
+})
 
-const synthesize_definition_declaration = (module: Module, decl: DefinitionDeclaration): Module | IdentifierRedeclaration | DefinitionDoesNotSynthesize | BadSortDeclaration => {
-    throw new Error('unimplemented')
-}
-
-// class NaturalNumberDeclaration { constructor(readonly nn_sort: Ast) {} }
-// const decl_natural_numbers = (nn_sort: Ast): NaturalNumberDeclaration => new NaturalNumberDeclaration(nn_sort)
-// const is_natural_numbers_declaration = (n: NaturalNumberDeclaration): n is NaturalNumberDeclaration => n instanceof NaturalNumberDeclaration
-
-// // a constant redeclaration can occur if we attempt to declare the natural numbers twice.
-// const synthesize_natural_number_declaration = (module: Module, decl: NaturalNumberDeclaration): Module | IdentifierRedeclaration | BadSortDeclaration => {
-//     const previous_sort = module.signature.lookup('N')
-//     if (defined(previous_sort))
-//         return identifier_redeclaration()
-//     const sort_sort = synthesize(new Env(module.signature, module.type_context, mk_map()), decl.sort)
-//     if (is_sort_error(sort_sort))
-//         return bad_sort_declaration(decl, sort_sort)
-//     return {
-//         ...module,
-//         signature: module.signature.add(decl.constant, decl.sort)
-//     }
-// }
-
-// describe('synthesize_natural_number_declaration', () => {
-//     test('given empty sig, valid', () => expect(
-//         synthesize_natural_number_declaration(empty_module, decl_natural_numbers(type_k))
-//     ).toEqual({
-//         signature: mk_sig(['N', type_k]),
-//         definitions: mk_map(),
-//         type_context: mk_map()
-//     }))
-//     test('given empty sig, invalid type', () => expect(
-//         synthesize_natural_number_declaration(empty_module, decl_natural_numbers(b))
-//     ).toEqual(
-//         bad_sort_declaration(decl_natural_numbers(b), new UndeclaredConstant(b))
-//     ))
-//     test('given non-empty sig, valid, depending on constant and variable', () => expect(
-//         synthesize_natural_number_declaration(
-//             {
-//                 signature: mk_sig([a, type_k], [b, pi(x, a, type_k)]),
-//                 definitions: mk_map(),
-//                 type_context: mk_map(['x', a])
-//             },
-//             decl_natural_numbers(app(b, x))
-//         )
-//     ).toEqual({
-//         signature: mk_sig([a, type_k], [b, pi(x, a, type_k)], ['N', app(b, x)]),
-//         definitions: mk_map(),
-//         type_context: mk_map(['x', a])
-//     }))
-//     test('given non-empty sig, constant redeclaration', () => expect(
-//         synthesize_natural_number_declaration(
-//             {
-//                 signature: mk_sig([a, type_k]),
-//                 definitions: mk_map(),
-//                 type_context: mk_map()
-//             },
-//             decl_natural_numbers(type_k)
-//         )
-//     ).toEqual(
-//         identifier_redeclaration(decl_constant(a, type_k))
-//     ))
-// })
-
-type Declaration =
-    | ConstantDeclaration
-    // | NaturalNumberDeclaration
-    | DefinitionDeclaration
-
-class IdentifierRedeclaration { constructor(readonly decl: ConstantDeclaration) {} }
-const identifier_redeclaration = (decl: ConstantDeclaration): IdentifierRedeclaration => new IdentifierRedeclaration(decl)
-const is_identifier_redeclaration = (r: unknown): r is IdentifierRedeclaration => r instanceof IdentifierRedeclaration
-
-class BadSortDeclaration { constructor(readonly decl: Declaration, readonly sort_error: SortError) {} }
-const bad_sort_declaration = (decl: Declaration, sort_error: SortError): BadSortDeclaration => new BadSortDeclaration(decl, sort_error)
-const is_bad_sort_declaration = (b: unknown): b is BadSortDeclaration => b instanceof BadSortDeclaration
-
-class VariableRedeclaration { constructor(readonly decl: DefinitionDeclaration) {} }
-const variable_redeclaration = (decl: DefinitionDeclaration): VariableRedeclaration => new VariableRedeclaration(decl)
-const is_variable_redeclaration = (d: unknown): d is VariableRedeclaration => d instanceof VariableRedeclaration
-
-class DefinitionDoesNotSynthesize { constructor(readonly decl: DefinitionDeclaration, readonly sort_error: SortError) {} }
-const definition_does_not_synthesize = (decl: DefinitionDeclaration, sort_error: SortError): DefinitionDoesNotSynthesize => new DefinitionDoesNotSynthesize(decl, sort_error)
-const is_definition_does_not_synthesize = (d: unknown): d is DefinitionDoesNotSynthesize => d instanceof DefinitionDoesNotSynthesize
-
-type BadDeclaration =
-    | IdentifierRedeclaration
-    | VariableRedeclaration
-    | DefinitionDoesNotSynthesize
-    | BadSortDeclaration
-
-const synthesize_declaration = (module: Module, declaration: Declaration): Module | BadDeclaration => {
-    throw new Error('unimplemented')
-}
-
-class EmptyModuleSpec {}
-const empty_module_spec = new EmptyModuleSpec
-const is_empty_module_spec = (s: unknown): s is EmptyModuleSpec => s instanceof EmptyModuleSpec
-class NonEmptyModuleSpec { constructor(readonly declaration: Declaration, readonly rest: ModuleSpec) {} }
-const non_empty_module_spec = (decl: Declaration, rest: ModuleSpec): NonEmptyModuleSpec => new NonEmptyModuleSpec(decl, rest)
-const is_non_empty_module_spec = (s: unknown): s is NonEmptyModuleSpec => s instanceof NonEmptyModuleSpec
-type ModuleSpec = EmptyModuleSpec | NonEmptyModuleSpec
-
-const make_module_spec = (decls: Declaration[]): ModuleSpec =>
-    is_empty(decls) ? empty_module_spec
-    : non_empty_module_spec(first(decls), make_module_spec(rest(decls)))
 
 const [eq_2_2] = ovlist('eq_2_2')
 const [N, O, S, plus, eq, refl, symm, tran, O_eq, S_eq, S_def, plus_def] = clist('N', 'O', 'S', 'plus', 'eq', 'refl', 'symm', 'tran', 'O_eq', 'S_eq', 'S_def', 'plus_def')
@@ -244,40 +240,18 @@ const nat_module = make_module_spec([
     decl_definition(eq_2_2, eq_f(nat(2), nat(2)), refl_f(nat(2)))
 ])
 
-const empty_module: Module = { signature: mk_sig(), definitions: mk_map(), type_context: mk_map() }
-
-interface Module {
-    signature: Sig
-    // definitions won't have any computational capacity for now -- they'll simply check whatever is on the right hand side and convert them to beta normal form.
-    definitions: RecursiveMap<Ast>
-    type_context: Ctx
-}
-
-class BadDeclarationInModule { constructor(readonly bad_declaration: BadDeclaration, readonly module_so_far: Module, readonly rest: ModuleSpec) {} }
-const bad_declaration_in_module = (bd: BadDeclaration, module_so_far: Module, rest: ModuleSpec): BadDeclarationInModule => new BadDeclarationInModule(bd, module_so_far, rest)
-const is_bad_declaration_in_module = (d: unknown): d is BadDeclarationInModule => d instanceof BadDeclarationInModule
-class BadChildModule { constructor(readonly declaration: Declaration, readonly child_error: ModuleSynthesisError) {} }
-const bad_child_module = (declaration: Declaration, child_error: ModuleSynthesisError): BadChildModule => new BadChildModule(declaration, child_error)
-const is_bad_child_module = (b: unknown): b is BadChildModule => b instanceof BadChildModule
-type ModuleSynthesisError =
-    | BadDeclarationInModule
-    | BadChildModule
-
-const synthesize_module = (spec: ModuleSpec): Module | ModuleSynthesisError => {
-    throw new Error('unimplemented')
-}
 
 describe('synthesize module', () => {
-    test('empty', () => expect(synthesize_module(empty_module_spec)).toEqual(empty_module))
+    test('empty', () => expect(synthesize_module(empty_module, empty_module_spec)).toEqual(empty_module))
     test('single constant module', () => expect(
-        synthesize_module(single_constant_module)
+        synthesize_module(empty_module, single_constant_module)
     ).toEqual({
         signature: mk_sig([con('cool'), type_k]),
         definitions: mk_map(),
         type_context: mk_map()
     }))
     test('invalid_single_constant_module', () => expect(
-        synthesize_module(invalid_single_constant_module)
+        synthesize_module(empty_module, invalid_single_constant_module)
     ).toEqual(
         bad_declaration_in_module(
             bad_sort_declaration(decl_constant(con('cool'), N), new UndeclaredConstant(N)),
@@ -286,14 +260,14 @@ describe('synthesize module', () => {
         )
     ))
     test('simple_nat_module', () => expect(
-        synthesize_module(simple_nat_module)
+        synthesize_module(empty_module, simple_nat_module)
     ).toEqual({
         signature: mk_sig([N, type_k], ['N', N]),
         definitions: mk_map(),
         type_context: mk_map()
     }))
     test('invalid_simple_nat_module_bad_first', () => expect(
-        synthesize_module(invalid_simple_nat_module_bad_first)
+        synthesize_module(empty_module, invalid_simple_nat_module_bad_first)
     ).toEqual(
         bad_declaration_in_module(
             bad_sort_declaration(decl_constant(N, con('cool')), new UndeclaredConstant(con('cool'))),
@@ -304,14 +278,14 @@ describe('synthesize module', () => {
         )
     ))
     test('invalid_simple_nat_module_bad_second', () => expect(
-        synthesize_module(invalid_simple_nat_module_bad_second)
+        synthesize_module(empty_module, invalid_simple_nat_module_bad_second)
     ).toEqual(
         bad_child_module(
             decl_constant(N, type_k),
             bad_declaration_in_module(
-                bad_sort_declaration(decl_constant(nn_key, N), new UndeclaredConstant(con('cool'))),
+                bad_sort_declaration(decl_constant(nn_key, con('cool')), new UndeclaredConstant(con('cool'))),
                 {
-                    signature: mk_sig([N, type_k], ['N', N]),
+                    signature: mk_sig([N, type_k]),
                     definitions: mk_map(),
                     type_context: mk_map()
                 },
@@ -319,5 +293,35 @@ describe('synthesize module', () => {
             )
         )
     ))
+    test('given non-empty module', () => expect(
+        synthesize_module(
+            {
+                signature: mk_sig([a, type_k], [b, a]),
+                definitions: mk_map(['z', b], ['x', y]),
+                type_context: mk_map(['z', a], ['y', a], ['x', a])
+            },
+            make_module_spec([
+                decl_constant(c, pi(v, a, type_k)),
+                decl_constant(d, app(c, b)),
+                decl_definition(u, app(c, b), d)
+            ])
+        )
+    ).toEqual({
+        signature: mk_sig([a, type_k], [b, a], [c, pi(v, a, type_k)], [d, app(c, b)]),
+        definitions: mk_map(['z', b], ['x', y], ['u', d]),
+        type_context: mk_map<Ast>(['z', a], ['y', a], ['x', a], ['u', app(c, b)])
+    }))
+    test('nat_module', () => expect(
+        synthesize_module(empty_module, nat_module)
+    ).toEqual({
+        signature: mk_sig(
+            [N, type_k], [O, N], [S, func_type([N], N)], [nn_key, N], [plus, func_type([N, N], N)], [eq, func_type([N, N], type_k)], [refl, pi(x, N, eq_f(x, x))],
+            [symm, pi(x, N, pi(y, N, pi(z, eq_f(x, y), eq_f(y, x))))], [tran, pi(x, N, pi(y, N, pi(z, N, pi(u, eq_f(x, y), pi(v, eq_f(y, z), eq_f(x, z))))))],
+            [O_eq, eq_f(O, O)], [S_eq, pi(x, N, pi(y, N, pi(z, eq_f(x, y), eq_f(S_f(x), S_f(y)))))], [S_def, pi(x, N, eq_f(S_f(x), plus_f(x, nat(1))))],
+            [plus_def, pi(x, N, pi(y, N, eq_f(plus_f(x, S_f(y)), S_f(plus_f(x, y)))))]),
+        definitions: mk_map(['eq_2_2', refl_f(nat(2))]),
+        type_context: mk_map(['eq_2_2', eq_f(nat(2), nat(2))])
+    }))
+
 })
 

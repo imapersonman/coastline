@@ -1,7 +1,7 @@
 import { Ast, Constant } from "../lambda_pi/ast"
 import { nat } from "../lambda_pi/shorthands"
 import { is_constant, is_natural_number } from "../lambda_pi/utilities"
-import { all_but_last, first, is_empty, last, rest } from "../utilities"
+import { all_but_last, defined, first, is_empty, last, rest } from "../utilities"
 import { Sort } from "./sort"
 
 export type NaturalNumbersKey = 'N'
@@ -11,7 +11,8 @@ export type SigKey = Constant | NaturalNumbersKey
 
 export interface Sig2 {
     is_empty(): boolean
-    lookup(key: Constant | NaturalNumbersKey): Ast | undefined
+    contains(key: SigKey): boolean
+    lookup(key: SigKey): Ast | undefined
     add(key: SigKey, sort: Ast): Sig2
     head(): [SigKey, Ast]
     tail(): Sig2
@@ -23,6 +24,7 @@ const add_to_sig = (sig: Sig2, key: SigKey, sort: Ast): Sig2 => {
 
 export class EmptySig implements Sig2 {
     is_empty(): boolean { return true }
+    contains(key: SigKey): boolean { return false }
     lookup(_key: Constant): Sort | undefined { return undefined }
     add(key: SigKey, sort: Ast): Sig2 { return add_to_sig(this, key, sort) }
     head(): [SigKey, Ast] { throw new Error('EmptySig does not contain a head!') }
@@ -35,6 +37,8 @@ export class ConstantSig implements Sig2 {
     is_empty(): boolean {
         return false
     }
+
+    contains(key: SigKey): boolean { return defined(this.lookup(key)) }
 
     add(key: SigKey, sort: Ast): Sig2 { return add_to_sig(this, key, sort) }
 
