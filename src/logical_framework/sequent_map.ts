@@ -25,7 +25,7 @@ export class SequentMap<V> {
     private static sequent_equals_sequent = (s1: Sequent, s2: Sequent): boolean => {
         const ast_set_equals_ast_set = (s1: Ast[], s2: Ast[]): boolean => s1.length === s2.length && s1.every((s1_ast) => ast_in(s1_ast, s2))
         const assumptions_equal = ast_set_equals_ast_set(s1.assumptions.entries().map(([,a]) => a), s2.assumptions.entries().map(([,a]) => a))
-        const conclusions_equal = beta_eta_equality(s1.conclusion, s2.conclusion)
+        const conclusions_equal = syntactic_equality(s1.conclusion, s2.conclusion)
         return assumptions_equal && conclusions_equal
     }
 

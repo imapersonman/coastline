@@ -50,3 +50,6 @@ export const is_unit = (o: any): o is [] => Array.isArray(o) && o.length === 0
 export const is_array = (a: any): a is any[] => Array.isArray(a)
 
 export const is_empty = (a: any): a is [] => is_array(a) && a.length === 0
+
+export const object_from_entries = <T>(...entries: [string, T][]): { [key: string]: T } =>
+    entries.reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
