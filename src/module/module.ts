@@ -6,7 +6,7 @@ import { Env } from "../logical_framework/env"
 import { Sig } from "../logical_framework/sig"
 import { mk_sig, nn_key, SigKey } from "../logical_framework/sig2"
 import { is_sort_error, SortError } from "../logical_framework/sort_errors"
-import { check_and_report, synthesize } from "../logical_framework/synthesize_type"
+import { check_and_report, check_and_report_with_defs, synthesize, synthesize_with_defs } from "../logical_framework/synthesize_type"
 import { mk_map, RecursiveMap } from "../map/RecursiveMap"
 import { first, is_empty, rest } from "../utilities"
 
@@ -117,10 +117,10 @@ export const synthesize_definition_declaration = (module: Module, decl: Definiti
     if (identifier_was_previously_declared(module, decl.variable))
         return identifier_redeclaration(decl)
     const env = new Env(module.signature, module.type_context, mk_map())
-    const checked_sort = check_and_report(env, decl.sort, type_k)
+    const checked_sort = check_and_report_with_defs(module.definitions, env, decl.sort, type_k)
     if (is_sort_error(checked_sort))
         return bad_sort_declaration(decl, checked_sort)
-    const checked_definition = check_and_report(env, decl.definition, decl.sort)
+    const checked_definition = check_and_report_with_defs(module.definitions, env, decl.definition, decl.sort)
     if (is_sort_error(checked_definition))
         return failed_definition_check(decl, checked_definition)
     return {
@@ -147,7 +147,7 @@ export const synthesize_constant_declaration = (module: Module, decl: ConstantDe
         return invalid_identifier(decl)
     if (identifier_was_previously_declared(module, decl.identifier))
         return identifier_redeclaration(decl)
-    const sort_sort = synthesize(new Env(module.signature, module.type_context, mk_map()), decl.sort)
+    const sort_sort = synthesize_with_defs(module.definitions, new Env(module.signature, module.type_context, mk_map()), decl.sort)
     if (is_sort_error(sort_sort))
         return bad_sort_declaration(decl, sort_sort)
     return {
