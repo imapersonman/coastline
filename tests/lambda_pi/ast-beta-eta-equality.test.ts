@@ -1,5 +1,7 @@
 import { AbstractSyntaxTree, Application, Constant, Lambda, MetaVariable, Pi, TypeKind, Variable } from "../../src/lambda_pi/ast";
-import { beta_eta_equality } from "../../src/lambda_pi/beta_eta_equality";
+import { beta_eta_delta_equality, beta_eta_equality } from "../../src/lambda_pi/beta_eta_equality";
+import { app, la } from "../../src/lambda_pi/shorthands";
+import { mk_map } from "../../src/map/RecursiveMap";
 
 type Ast = AbstractSyntaxTree
 
@@ -82,3 +84,68 @@ test_beta_eta_equality("Lambda-left non-nf F", non_nf_1(Lxcax), non_nf_2(b), fal
 // lambda-right non-nf tests
 test_beta_eta_equality("Lambda-right non-nf T", non_nf_2(a), non_nf_1(Lxcax), true)
 test_beta_eta_equality("Lambda-right non-nf F", non_nf_2(b), non_nf_1(Lxcax), false)
+
+// beta_eta_delta_equality specific tests
+describe('beta_eta_delta_equality (all non-empty defs)', () => {
+    test('equal variables not in defs', () => expect(
+        beta_eta_delta_equality(mk_map<Ast>(['a', app(x, w)], ['b', x]), x, x)
+    ).toBeTruthy())
+    test('non-equal variables not in defs', () => expect(
+        beta_eta_delta_equality(mk_map<Ast>(['a', app(x, w)], ['b', x]), x, y)
+    ).toBeFalsy())
+    test('equal variables in defs', () => expect(
+        beta_eta_delta_equality(mk_map<Ast>(['y', app(x, w)], ['z', app(x, w)]), y, z)
+    ).toBeTruthy())
+    test('non-equal variables, left in defs', () => expect(
+        beta_eta_delta_equality(mk_map<Ast>(['z', app(x, w)], ['b', app(x, w)]), z, x)
+    ).toBeFalsy())
+    test('non-equal variables, right in defs', () => expect(
+        beta_eta_delta_equality(mk_map<Ast>(['a', app(x, w)], ['b', app(x, w)]), w, z)
+    ).toBeFalsy())
+    test('expanding into each other', () => expect(
+        beta_eta_delta_equality(mk_map<Ast>(['x', y], ['y', x]), x, y)
+    ).toBeFalsy())
+    test('equal variable contained in it\'s own def', () => expect(
+        // this is an interesting example.
+        // both terms expand to the same thing, but one of the terms expands to a term
+        // containing itself.
+        // because x is removed from the definitions environment, we get both terms only
+        // expanding once, and they end up equal to each other.
+        // it is impossible for a module to admit this kind of definition environment,
+        // so the precise meaning of this example doesn't seem to be important.
+        beta_eta_delta_equality(mk_map<Ast>(['x', app(x, x)], ['y', app(x, x)]), x, y)
+    ).toBeTruthy())
+    test('equal variable in defs shadowed by lambda but they should be non-equal', () => expect(
+        beta_eta_delta_equality(mk_map<Ast>(['x', app(x, x)], ['y', app(x, x)]), la(x, a, x), la(y, a, x))
+    ).toBeFalsy())
+    test('a variable cannot be equal to a term that contains it', () => expect(
+        beta_eta_delta_equality(mk_map<Ast>(['y', app(x, x)]), y, x)
+    ).toBeFalsy())
+    test('variable has to expand twice to equal the other term', () => expect(
+        beta_eta_delta_equality(mk_map<Ast>(['x', app(y, z)], ['z', app(a, b)]), x, app(y, app(a, b)))
+    ).toBeTruthy())
+})
+
+// what if one of the terms tries to expand into itself?
+// { x -> x } >> x =B= y
+//               +--> {} >> x =B= y
+
+// what if one of the terms expands into the other term?
+// that's totally fine.
+
+// what if 
+
+// app(x, y) =B= app(z, w)
+// |--> x =B= z
+//      It's okay to remove x from the definitions for both sides because the two terms should be equal iff the second x doesn't need
+//      to be expanded on both sides (is that true? that doesn't sound quite right)
+//      |--> app(a, c) =B= x
+// |--> y =B= w
+
+
+// what if the two terms expand into each other?
+// then they should NOT be considered equal.
+// modules will sense this issue.
+// {x -> y, y -> x} >> x =B= y
+//                     |--> {} >> y =B= x
+// both variables are removed from their definitions.
