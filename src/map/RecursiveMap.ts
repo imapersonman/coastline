@@ -2,6 +2,7 @@ import { Variable } from "../lambda_pi/ast"
 import { ov } from "../lambda_pi/shorthands"
 import { v_union } from "../lambda_pi/utilities"
 import { Ctx } from "../logical_framework/ctx"
+import { defined } from "../utilities"
 
 export class MapLookupKeyNotFound {
     constructor(readonly key: string) {}
@@ -120,4 +121,12 @@ export function mk_map<V>(...entries: [string, V][]): RecursiveMap<V> {
 
 export function map_lookup_key_not_found<V>(result: V | MapLookupKeyNotFound): result is MapLookupKeyNotFound {
     return result instanceof MapLookupKeyNotFound
+}
+
+export const display_recursive_map = <V, D>(map: RecursiveMap<V>, display_value?: (v: V) => D) => {
+    if (map.is_empty())
+        return []
+    const [key, value] = map.head()
+    const dvf = defined(display_value) ? display_value : (v: V) => v
+    return [[key, dvf(value)], ...display_recursive_map(map.tail())]
 }

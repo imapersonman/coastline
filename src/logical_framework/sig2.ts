@@ -1,6 +1,6 @@
 import { Ast, Constant } from "../lambda_pi/ast"
 import { nat } from "../lambda_pi/shorthands"
-import { is_constant, is_natural_number } from "../lambda_pi/utilities"
+import { ast_to_string, is_constant, is_natural_number } from "../lambda_pi/utilities"
 import { all_but_last, defined, first, is_empty, last, rest } from "../utilities"
 import { Sort } from "./sort"
 
@@ -8,6 +8,12 @@ export type NaturalNumbersKey = 'N'
 export const nn_key = 'N'
 
 export type SigKey = Constant | NaturalNumbersKey
+
+export const display_sig_key = (s: SigKey) => {
+    if (is_constant(s))
+        return ast_to_string(s)
+    return s
+}
 
 export interface Sig2 {
     is_empty(): boolean
