@@ -2,11 +2,18 @@ import { Variable } from "../lambda_pi/ast"
 import { beta_eta_equality } from "../lambda_pi/beta_eta_equality"
 import { ov } from "../lambda_pi/shorthands"
 import { map_lookup_key_not_found, mk_map } from "../map/RecursiveMap"
-import { Ctx } from "./ctx"
-import { Sort } from "./sort"
+import { Ctx, display_ctx } from "./ctx"
+import { display_sort, Sort } from "./sort"
 
 export class IncompatibleCtxs { constructor(readonly cxt1: Ctx, readonly ctx2: Ctx, readonly variable: Variable, readonly sort1: Sort, readonly sort2: Sort) {} }
 export const is_incompatible_ctxs = (i: unknown): i is IncompatibleCtxs => i instanceof IncompatibleCtxs
+export const display_incompatible_ctxs = (i: IncompatibleCtxs) => ({
+    ctx1: display_ctx(i.cxt1),
+    ctx2: display_ctx(i.ctx2),
+    variable: i.variable.id,
+    sort1: display_sort(i.sort1),
+    sort2: display_sort(i.sort2)
+})
 
 export const ctx_union = (c1: Ctx, c2: Ctx): Ctx | IncompatibleCtxs => {
     const ctx_rev_union = (c1p: Ctx, rev_c2: Ctx): Ctx | IncompatibleCtxs => {

@@ -3,7 +3,7 @@ import { Ast } from "../lambda_pi/ast"
 import { beta_eta_equality } from "../lambda_pi/beta_eta_equality"
 import { syntactic_equality } from "../lambda_pi/syntactic_equality"
 import { ast_in, ast_to_string } from "../lambda_pi/utilities"
-import { defined, replace_at_index } from "../utilities"
+import { defined, is_empty, replace_at_index } from "../utilities"
 import { Ctx } from "./ctx"
 
 export class SequentMap<V> {
@@ -22,7 +22,13 @@ export class SequentMap<V> {
         return SequentMap.find_entry_in_list(s, this.entries)?.value
     }
 
-    private static sequent_equals_sequent = (s1: Sequent, s2: Sequent): boolean => {
+    remove(s: Sequent): SequentMap<V> {
+        if (is_empty(this.entries))
+            return this
+        return new SequentMap(...SequentMap.transform_entries_in_list(this.entries.filter(({ key }) => !SequentMap.sequent_equals_sequent(key, s))))
+    }
+
+    public static sequent_equals_sequent = (s1: Sequent, s2: Sequent): boolean => {
         const ast_set_equals_ast_set = (s1: Ast[], s2: Ast[]): boolean => s1.length === s2.length && s1.every((s1_ast) => ast_in(s1_ast, s2))
         const assumptions_equal = ast_set_equals_ast_set(s1.assumptions.entries().map(([,a]) => a), s2.assumptions.entries().map(([,a]) => a))
         const conclusions_equal = syntactic_equality(s1.conclusion, s2.conclusion)

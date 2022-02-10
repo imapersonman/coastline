@@ -54,4 +54,10 @@ describe('sequent map', () => {
         test('non-disjoint 1 (takes equivalent entry from first)', () => expect(two_with_ctx_names_not_types_permuted_and_same_conclusion.merge(two_with_ctxs_permuted_and_same_conclusion)).toEqual(new SequentMap([Aa_Bb_c_seq, 11], [Ba_Ab_c_seq, 4])))
         test('non-disjoint 2 (takes equivalent entry from first)', () => expect(two_with_ctxs_permuted_and_same_conclusion.merge(two_with_ctx_names_not_types_permuted_and_same_conclusion)).toEqual(new SequentMap([Aa_Bb_c_seq, 3], [Ba_Ab_c_seq, 4])))
     })
+
+    describe('remove', () => {
+        test('from empty', () => expect(empty.remove(Ba_Ab_c_seq)).toEqual(empty))
+        test('from non-empty not containing', () => expect(two_with_ctxs_permuted_and_same_conclusion.remove(empty_tk_seq)).toEqual(two_with_ctxs_permuted_and_same_conclusion))
+        test('from non-empty containing', () => expect(two_with_empty_ctxs_different_conclusion.remove(empty_tk_seq)).toEqual(different_single_with_empty_ctx))
+    })
 })
