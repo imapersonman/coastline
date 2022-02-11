@@ -4,8 +4,8 @@ import { syntactic_equality } from "../lambda_pi/syntactic_equality"
 import { mk_map } from "../map/RecursiveMap"
 import { Env } from "../logical_framework/env"
 import { Sig } from "../logical_framework/sig"
-import { display_sort_error, SortError } from "../logical_framework/sort_errors"
-import { check_and_report } from "../logical_framework/synthesize_type"
+import { display_sort_error, is_sort_error, SortError } from "../logical_framework/sort_errors"
+import { check_and_report, check_for_redeclarations } from "../logical_framework/synthesize_type"
 import { apply_relatively_named_ast } from "./apply_relatively_named_ast"
 import { ctxs_at_meta_variables } from "./ctxs_at_metavariables"
 import { IndexedValue } from "./indexed_value"
@@ -75,14 +75,22 @@ export const check_proof_insert = (sig: Sig, outer_ctx: Ctx, goal: Sequent, new_
     let there_exists_a_sort_error = false
     const checked_sub_problems = ctxs_at_mvs.map((ctx, i) => {
         // Every ctx in ctxs_at_mvs is guarunteed to exist based on how apply_relatively_named_ast works, so I don't mind the !.
+        const redeclaration_report = check_for_redeclarations(ctx!.domain(), new_conclusions[i])
         const report = check_and_report(new Env(sig, outer_ctx.union(ctx!.union(goal.assumptions)), mk_map()), new_conclusions[i], type_k)
-        there_exists_a_sort_error = there_exists_a_sort_error || report !== true
-        return report === true ? new SubProblem(mvs[i], sequent(ctx!, new_conclusions[i])) : new FailedSubProblem(mvs[i], report)
+        there_exists_a_sort_error = there_exists_a_sort_error || report !== true || is_sort_error(redeclaration_report)
+        return is_sort_error(redeclaration_report) ? new FailedSubProblem(mvs[i], redeclaration_report)
+            : is_sort_error(report) ? new FailedSubProblem(mvs[i], report)
+            : new SubProblem(mvs[i], sequent(ctx!, new_conclusions[i]))
+        // return report === true ? new SubProblem(mvs[i], sequent(ctx!, new_conclusions[i]))
+        //     : new FailedSubProblem(mvs[i], report)
     })
     if (there_exists_a_sort_error)
         return new InvalidProofInsertWithBadNewConclusions(ast, checked_sub_problems)
     const mvs_map = mk_map(...mvs.map((mv, i): [string, Ast] => [mv.id, new_conclusions[i]]))
     const full_ctx = goal.assumptions.union(outer_ctx)
+    const redeclaration_report = check_for_redeclarations(full_ctx.domain(), ast)
+    if (is_sort_error(redeclaration_report))
+        return new InvalidProofInsertWithBadFragment(full_ctx, ast, redeclaration_report)
     const report = check_and_report(new Env(sig, full_ctx, mvs_map), ast, goal.conclusion)
     return report === true ? new ValidProofInsert(ast, vs, checked_sub_problems as SubProblem[]) : new InvalidProofInsertWithBadFragment(full_ctx, ast, report)
 }

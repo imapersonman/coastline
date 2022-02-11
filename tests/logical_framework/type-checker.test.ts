@@ -2,15 +2,17 @@ import { KindSort, Sort } from "../../src/logical_framework/sort";
 import { Application, Ast, Constant, GeneratedVariable, Lambda, MetaVariable, Pi, TypeKind, Variable } from "../../src/lambda_pi/ast";
 import { try_parse } from "../../src/lambda_pi/parsers/parser";
 import { mk_map } from "../../src/map/RecursiveMap";
-import { check_and_report, check_ctx, check_meta_ctx, check_sig, synthesize, check_ctx_and_report } from "../../src/logical_framework/synthesize_type";
+import { check_and_report, check_ctx, check_meta_ctx, check_sig, synthesize, check_ctx_and_report, check_for_redeclarations } from "../../src/logical_framework/synthesize_type";
 import { Env } from "../../src/logical_framework/env"
-import { BadChildSort, FailedCheck, FailedCheckFamilyOrKind, FailedCheckPi, RedeclaredVariable, SortError, UndeclaredConstant, UndeclaredMetaVariable, UndeclaredVariable } from "../../src/logical_framework/sort_errors";
+import { BadChildSort, FailedCheck, FailedCheckFamilyOrKind, FailedCheckPi, is_sort_error, RedeclaredVariable, SortError, UndeclaredConstant, UndeclaredMetaVariable, UndeclaredVariable } from "../../src/logical_framework/sort_errors";
 import { BadEntry, FailedCtxCheck } from "../../src/logical_framework/ctx_errors"
 import MacLogic from "../../src/logical_framework/maclogic_sig"
 import examples from "../../src/logical_framework/type_checking_examples"
 import { Sig } from "../../src/logical_framework/sig";
 import { Ctx } from "../../src/logical_framework/ctx";
 import { mk_sig } from "../../src/logical_framework/sig2";
+import maclogic_sig from "../../src/logical_framework/maclogic_sig";
+import { to_beta_normal_form } from "../../src/lambda_pi/to_beta_normal_form";
 
 function test_synthesize(name: string, sig: Sig, ctx: Ctx, ast: Ast, output: Sort | SortError) {
     const result = synthesize(new Env(sig, ctx, mk_map()), ast)
@@ -85,7 +87,9 @@ test_synthesize("pi kind nested", mk_sig([a, type_k]), mk_map(), P(x, a, P(y, a,
 // BadChild(P(z:x).Type, FailedCheck(x, Type, a))
 test_synthesize("pi bad var sort", mk_sig([a, type_k]), mk_map(["x", a]), P(z, x, type_k), new BadChildSort(P(z, x, type_k), new FailedCheck(x, type_k, a)))
 // BadChild(P(x:a).Type, VariableRedeclared(x))
-test_synthesize("pi var in ctx", mk_sig([a, type_k]), mk_map(["x", a]), P(x, a, type_k), new BadChildSort(P(x, a, type_k), new RedeclaredVariable(x)))
+// test_synthesize("pi var in ctx", mk_sig([a, type_k]), mk_map(["x", a]), P(x, a, type_k), new BadChildSort(P(x, a, type_k), new RedeclaredVariable(x)))
+test('redeclaration in pi', () => expect(check_for_redeclarations([x], P(x, a, type_k))).toEqual(new BadChildSort(P(x, a, type_k), new RedeclaredVariable(x))))
+test_synthesize("pi var in ctx but that's fine because shadowing", mk_sig([a, type_k]), mk_map(["x", a]), P(x, a, type_k), type_k)
 // BadChild(P(x:a).b, FailedCheckFamilyOrKind(b, a))
 test_synthesize("pi bad scope sort", mk_sig([a, type_k], [b, a]), mk_map(), P(x, a, b), new BadChildSort(P(x, a, b), new FailedCheckFamilyOrKind(b, a)))
 const synthed = synthesize(new Env(mk_sig([a, type_k], [b, a]), mk_map(), mk_map()), P(x, a, b))
@@ -96,7 +100,7 @@ test_synthesize("pi family nested", mk_sig([a, type_k], [b, type_k]), mk_map(), 
 // BadChild(P(x:Type).a, FailedCheck(Type, Type, Kind))
 test_synthesize("pi invalid var family", mk_sig([a, type_k]), mk_map(), P(x, type_k, a), new BadChildSort(P(x, type_k, a), new FailedCheck(type_k, type_k, kind_s)))
 // BadChild(P(x:a).a, VariableRedeclared(x))
-test_synthesize("pi var in ctx", mk_sig([a, type_k]), mk_map(["x", a]), P(x, a, a), new BadChildSort(P(x, a, a), new RedeclaredVariable(x)))
+// test_synthesize("pi var in ctx", mk_sig([a, type_k]), mk_map(["x", a]), P(x, a, a), new BadChildSort(P(x, a, a), new RedeclaredVariable(x)))
 test_check_sig("complex kind", mk_sig([a, type_k], [b, P(x, a, type_k)]), true)
 // BadChild(P(x:a).b, FailedCheckFamilyOrKind(b, P(x:a).Type))
 test_synthesize("pi neither kind nor family", mk_sig([a, type_k], [b, P(x, a, type_k)]), mk_map(), P(x, a, b), new BadChildSort(P(x, a, b), new FailedCheckFamilyOrKind(b, P(x, a, type_k))))
@@ -107,7 +111,9 @@ test_synthesize("lambda rename", mk_sig([b, type_k], [a, P(x, a, type_k)]), mk_m
 // BadChild(L(x:b).a, FailedCheck(b, Type, a))
 test_synthesize("lambda bad var family", mk_sig([a, type_k], [b, a]), mk_map(), L(x, b, a), new BadChildSort(L(x, b, a), new FailedCheck(b, type_k, a)))
 // BadChild(L(x:b).a, VariableRedeclared(x))
-test_synthesize("lambda var in ctx", mk_sig([a, type_k]), mk_map(["x", a]), L(x, b, a), new BadChildSort(L(x, b, a), new RedeclaredVariable(x)))
+// test_synthesize("lambda var in ctx", mk_sig([a, type_k]), mk_map(["x", a]), L(x, b, a), new BadChildSort(L(x, b, a), new RedeclaredVariable(x)))
+test('redeclaration in lambda', () => expect(check_for_redeclarations([x], L(x, b, a))).toEqual(new BadChildSort(L(x, b, a), new RedeclaredVariable(x))))
+test_synthesize("lambda var in ctx but that's fine because shadowing", mk_sig([a, type_k], [b, type_k]), mk_map(["x", a]), L(x, b, a), P(x, b, type_k))
 // P(x:a).Type
 test_synthesize("lambda var not in ctx", mk_sig([a, type_k]), mk_map(["y", a]), L(x, a, a), P(x, a, type_k))
 // a
@@ -174,3 +180,23 @@ const test_env_synthesis = (name: string, env: Env, ast: Ast, output: Sort | Sor
 const X0 = new MetaVariable("X0")
 test_env_synthesis("undeclared metavariable", new Env(mk_sig(), mk_map(), mk_map()), X0, new UndeclaredMetaVariable(X0))
 test_env_synthesis("declared metavariable", new Env(mk_sig(), mk_map(), mk_map(["X0", type_k])), X0, type_k)
+
+// HOW DID IT TAKE ME SO LONG TO RUN INTO THIS ERROR IT SEEMS SO OBVIOUS NOW!!!!!!!!
+// Theory on why this happened: to_beta_eta_normal_form was written assuming variable shadowing was a thing.
+// It isn't in my version of the type-checker, so ast4 (and similar Asts) type-check, but don't once normalized.
+// This is gross as hell and points to deeper disconnects between the type-checker and the normalizer.
+// This sucks.
+const ast4 = try_parse('(L(z: P(x: i).i).L(y: i).z) (L(y: i).y)')
+test.only('to_beta check', () => expect(
+    is_sort_error(synthesize(new Env(maclogic_sig, mk_map(), mk_map()), ast4))
+).toBeFalsy(
+))
+
+test.only('to_beta check 2', () => expect(
+    is_sort_error(synthesize(new Env(maclogic_sig, mk_map(), mk_map()), to_beta_normal_form(ast4)))
+).toBeFalsy(
+))
+
+// 2/10/2022: My solution for now is to separate out the redeclaration check into check_for_redeclarations, and to run
+//            synthesize without this check during proof linearization.  Proof insert checking will call both
+//            check_for_redeclarations and check_and_report, so it should work the same way.

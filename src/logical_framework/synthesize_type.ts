@@ -7,10 +7,10 @@ import { MapLookupKeyNotFound, mk_map, RecursiveMap } from "../map/RecursiveMap"
 import { Ctx } from "./ctx";
 import { Env } from "./env";
 import { Sig } from "./sig";
-import { BadChildSort, FailedCheck, FailedCheckFamilyOrKind, FailedCheckObjectOrFamily, FailedCheckPi, is_sort_error, RedeclaredVariable, SortError, UndeclaredConstant, UndeclaredMetaVariable, UndeclaredVariable } from "./sort_errors";
+import { BadChildSort, FailedCheck, FailedCheckFamilyOrKind, FailedCheckObjectOrFamily, FailedCheckPi, is_redeclared_variable, is_sort_error, RedeclaredVariable, SortError, UndeclaredConstant, UndeclaredMetaVariable, UndeclaredVariable } from "./sort_errors";
 import { BadEntry, FailedCtxCheck } from "./ctx_errors";
 import { to_beta_normal_form } from "../lambda_pi/to_beta_normal_form";
-import { is_ast } from "../lambda_pi/utilities";
+import { ast_in, is_application, is_ast, is_binder } from "../lambda_pi/utilities";
 import { defined } from "../utilities";
 import { Sig2 } from "./sig2";
 
@@ -153,6 +153,30 @@ export function check_object_or_family_with_defs(defs: RecursiveMap<Ast>, env: E
     return sort
 }
 
+export function check_for_redeclarations(previously_declared_variables: Variable[], ast: Ast): [] | BadChildSort | RedeclaredVariable {
+    if (is_binder(ast)) {
+        if (ast_in(ast.bound, previously_declared_variables))
+            return new BadChildSort(ast, new RedeclaredVariable(ast.bound))
+        const type_status = check_for_redeclarations(previously_declared_variables, ast.type)
+        if (is_sort_error(type_status))
+            return new BadChildSort(ast, type_status)
+        const scope_status = check_for_redeclarations([ast.bound, ...previously_declared_variables], ast.scope)
+        if (is_sort_error(scope_status))
+            return new BadChildSort(ast, scope_status)
+        return []
+    }
+    if (is_application(ast)) {
+        const head_status = check_for_redeclarations(previously_declared_variables, ast.head)
+        if (is_sort_error(head_status))
+            return new BadChildSort(ast, head_status)
+        const arg_status = check_for_redeclarations(previously_declared_variables, ast.arg)
+        if (is_sort_error(arg_status))
+            return new BadChildSort(ast, arg_status)
+        return []
+    }
+    return []
+}
+
 export function synthesize(env: Env, ast: Ast): Sort | SortError {
     return synthesize_with_defs(mk_map(), env, ast)
 }
@@ -182,8 +206,8 @@ export function synthesize_with_defs(defs: RecursiveMap<Ast>, env: Env, ast: Ast
     const synth_from_pi = (env: Env, ast: Ast) => {
         const { sig, ctx, mctx } = env
         if (!(ast instanceof Pi)) return undefined
-        if (!(ctx.lookup(ast.bound.id) instanceof MapLookupKeyNotFound))
-            return new BadChildSort(ast, new RedeclaredVariable(ast.bound))
+        // if (!(ctx.lookup(ast.bound.id) instanceof MapLookupKeyNotFound))
+        //     return new BadChildSort(ast, new RedeclaredVariable(ast.bound))
         const type_sort = synthesize_with_defs(defs, env, ast.type)
         if (is_sort_error(type_sort))
             return new BadChildSort(ast, type_sort)
@@ -197,8 +221,8 @@ export function synthesize_with_defs(defs: RecursiveMap<Ast>, env: Env, ast: Ast
     const synth_from_lambda = (env: Env, ast: Ast) => {
         const { sig, ctx, mctx } = env
         if (!(ast instanceof Lambda)) return undefined
-        if (!(ctx.lookup(ast.bound.id) instanceof MapLookupKeyNotFound))
-            return new BadChildSort(ast, new RedeclaredVariable(ast.bound))
+        // if (!(ctx.lookup(ast.bound.id) instanceof MapLookupKeyNotFound))
+        //     return new BadChildSort(ast, new RedeclaredVariable(ast.bound))
         const type_sort = synthesize_with_defs(defs, env, ast.type)
         if (is_sort_error(type_sort))
             return new BadChildSort(ast, type_sort) 
@@ -207,9 +231,9 @@ export function synthesize_with_defs(defs: RecursiveMap<Ast>, env: Env, ast: Ast
         const checked_scope_sort = check_object_or_family_with_defs(defs, new Env(sig, ctx.add(ast.bound.id, ast.type), mctx), ast.scope)
         if (is_sort_error(checked_scope_sort))
             return new BadChildSort(ast, checked_scope_sort)
-        const variables_to_avoid = ctx.domain()
-        const new_bound = new_variable(variables_to_avoid, ast.bound)
-        const new_scope = substitute(ast.bound, new_bound, checked_scope_sort)
+        // const variables_to_avoid = ctx.domain()
+        const new_bound = ast.bound//new_variable(variables_to_avoid, ast.bound)
+        const new_scope = checked_scope_sort//substitute(ast.bound, new_bound, checked_scope_sort)
         return new Pi(new_bound, ast.type, new_scope)
     }
     const synth_from_application = (env: Env, ast: Ast) => {
