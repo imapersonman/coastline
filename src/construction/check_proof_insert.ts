@@ -36,6 +36,15 @@ export const display_failed_sub_problem = (sp: FailedSubProblem): object => ({
 export type CheckedProofInsert = ValidProofInsert | InvalidProofInsertWithBadFragment | InvalidProofInsertWithBadNewConclusions
 export const is_checked_proof_insert = (c: any): c is CheckedProofInsert =>
     is_valid_proof_insert(c) || is_invalid_proof_insert_with_bad_fragment(c) || is_invalid_proof_insert_with_bad_new_conclusions(c)
+export const display_checked_proof_insert = (c: CheckedProofInsert) => {
+    if (is_valid_proof_insert(c))
+        return display_valid_proof_insert(c)
+    if (is_invalid_proof_insert_with_bad_fragment(c))
+        return display_invalid_proof_insert_with_bad_fragment(c)
+    if (is_invalid_proof_insert_with_bad_new_conclusions(c))
+        return display_invalid_proof_insert_with_bad_new_conclusions(c)
+    return '???CHECKED_PROOF_INSERT???'
+}
 export class ValidProofInsert {
     // The MetaVariables used should have a 1-1 correspondence with what would be in used_meta_variables, so I've removed the used_meta_variables list and
     // replaced it with a sub_problems list.  I also removed the new_sequents list.
@@ -43,6 +52,12 @@ export class ValidProofInsert {
 }
 export const is_valid_proof_insert = (v: any): v is ValidProofInsert => v instanceof ValidProofInsert
 export const valid_proof_insert = (ast: Ast, used_variables: Variable[], sub_problems: SubProblem[]): ValidProofInsert => new ValidProofInsert(ast, used_variables, sub_problems)
+export const display_valid_proof_insert = (v: ValidProofInsert) => ({
+    did: 'ValidProofInsert',
+    ast: ast_to_string(v.ast),
+    used_variables: v.used_variables.map(ast_to_string),
+    sub_problems: v.sub_problems.map(display_sub_problem)
+})
 export type InvalidProofInsert = InvalidProofInsertWithBadFragment | InvalidProofInsertWithBadNewConclusions
 export const is_invalid_proof_insert = (i: any): i is InvalidProofInsert => is_invalid_proof_insert_with_bad_fragment(i) || is_invalid_proof_insert_with_bad_new_conclusions(i)
 export class InvalidProofInsertWithBadFragment { constructor(readonly ctx: Ctx, readonly ast: Ast, readonly sort_error: SortError) {} }

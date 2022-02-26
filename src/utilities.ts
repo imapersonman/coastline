@@ -53,3 +53,7 @@ export const is_empty = (a: any): a is [] => is_array(a) && a.length === 0
 
 export const object_from_entries = <T>(...entries: [string, T][]): { [key: string]: T } =>
     entries.reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+
+export const display_or_undefined = <T>(display_func: (o: T) => any, o: T | undefined) =>
+    defined(o) ? display_func(o) : 'undefined'
+
