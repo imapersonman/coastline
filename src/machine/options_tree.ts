@@ -1,3 +1,4 @@
+import { defined } from "../utilities"
 import { CoastlineControl } from "./control"
 
 export class OptionsTree {
@@ -12,3 +13,11 @@ export const is_options_tree = (o: unknown): o is OptionsTree => o instanceof Op
 export const display_options_tree = (t: OptionsTree) => ({
     options: t.options.map(([label]) => label)
 })
+
+export const path_from_options_tree = (options_tree: OptionsTree, path_label: string): CoastlineControl | undefined => {
+    const found_path_pair = options_tree.options.find(([label, path_f]) => path_label === label)
+    if (!defined(found_path_pair))
+        return undefined
+    return found_path_pair[1]()
+}
+

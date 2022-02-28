@@ -1,5 +1,6 @@
+import { display_stack, Stack } from "../stack"
 import { CoastlineControl, display_coastline_control } from "./control"
-import { AnyCoastlineObject } from "./object"
+import { AnyCoastlineObject, display_coastline_object } from "./object"
 
 export class OperatorDefinition { constructor(readonly name: string, readonly f: (inputs: AnyCoastlineObject[]) => CoastlineControl) {} }
 export const operator_definition = (name: string, f: (inputs: AnyCoastlineObject[]) => CoastlineControl): OperatorDefinition => new OperatorDefinition(name, f)
@@ -20,11 +21,11 @@ export const display_operator_application = (a: OperatorApplication) => ({
     controls   : a.controls.map(display_coastline_control)
 })
 
-export class PendingOperation { constructor( readonly operator: OperatorDefinition, readonly arity: number) {} }
-export const pending_operation = (operator: OperatorDefinition, arity: number): PendingOperation => new PendingOperation(operator, arity)
-
-export const display_pending_operation = (pop: PendingOperation) => ({
-    operator: pop.operator.name,
-    arity: pop.arity
+export class PendingOperation { constructor(readonly op: OperatorDefinition, readonly args: Stack<CoastlineControl>, readonly results: Stack<AnyCoastlineObject>) {} }
+export const pending_operation = (op: OperatorDefinition, args: Stack<CoastlineControl>, results: Stack<AnyCoastlineObject>): PendingOperation =>
+    new PendingOperation(op, args, results)
+export const display_pending_operation = (po: PendingOperation) => ({
+    op: po.op.name,
+    args: display_stack(po.args, display_coastline_control),
+    results: display_stack(po.results, display_coastline_object)
 })
-

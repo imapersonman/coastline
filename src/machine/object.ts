@@ -31,21 +31,25 @@ export const display_coastline_object = (o: CoastlineObject<keyof CoastlineObjec
         if (cta('TermVariable', t))
             return `.${t.value}`
         if (cta('TermList', t))
-            return `(${(t.value.map((t) => display_term_atom_variable_or_list(t.value)).join(', '))})`
+            return `(${(t.value.map((t) => display_term_atom_variable_or_list(t.value)).join(' '))})`
         return 'UnknownTermSubType'
     }
 
     const display_term = (t: CoastlineObject<'Term'>) =>
-        ({ type: 'Term', value: display_term_atom_variable_or_list(t.value) })
+        `term(${display_term_atom_variable_or_list(t.value) })`
     
-    const substitution_to_list = (s: CoastlineObject<'Substitution'>): [CoastlineObject<'TermVariable'>, CoastlineObject<'Term'>][] => {
-        if (cta('NonEmptySub', s.value))
-            return [[s.value.value.variable, s.value.value.term], ...substitution_to_list(s.value.value.rest)]
+    const display_raw_substitution = (s: CoastlineObject<'EmptySub' | 'NonEmptySub'>) =>
+        `{${substitution_to_list(s).map(([v, t]) => `${display_term_atom_variable_or_list(v)} |-> ${display_term(t)}`).join(', ')}}`
+    
+    const substitution_to_list = (s: CoastlineObject<'Substitution' | 'EmptySub' | 'NonEmptySub'>): [CoastlineObject<'TermVariable'>, CoastlineObject<'Term'>][] => {
+        const raw_sub = cta('Substitution', s) ? s.value : s
+        if (cta('NonEmptySub', raw_sub))
+            return [[raw_sub.value.variable, raw_sub.value.term], ...substitution_to_list(raw_sub.value.rest)]
         return []
     }
     
     const display_substitution = (s: CoastlineObject<'Substitution'>) =>
-        ({ type: 'Substitution', value: `{${substitution_to_list(s).map(([v, t]) => `${display_term_atom_variable_or_list(v)} |-> ${display_term(t)}`).join(', ')}}` })
+        ({ type: 'Substitution', value: display_raw_substitution(s.value) })
     
     if (cta('Term', o))
         return display_term(o)
@@ -53,6 +57,9 @@ export const display_coastline_object = (o: CoastlineObject<keyof CoastlineObjec
         return display_term_atom_variable_or_list(o)
     if (cta('Substitution', o))
         return display_substitution(o)
+    if (cta('EmptySub', o) || cta('NonEmptySub', o))
+        return display_raw_substitution(o)
+
     return o
 }
 
