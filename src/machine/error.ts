@@ -1,18 +1,26 @@
 import { defined } from "../utilities"
-import { AnyCoastlineObject, CoastlineObject, CoastlineObjectValueMap, display_coastline_object } from "./object"
+import { AnyCoastlineObject, CoastlineObject, CoastlineObjectValueMap, display_coastline_object, Term } from "./object"
 
 export type CoastlineErrorValueMap = {
-    'InputNotEqualTo'              : number
-    'InputNotGreaterThanOrEqualTo' : number
-    'ObjectNotOfType'              : { object: AnyCoastlineObject, expected: keyof CoastlineObjectValueMap }
-    'ObjectNotOfAnyType'           : { expected: (keyof CoastlineObjectValueMap)[], actual: keyof CoastlineObjectValueMap }
-    'TermsAreNotEqual'             : { term1: CoastlineObject<'Term'>, term2: CoastlineObject<'Term'> }
-    'TermsAreEqual'                : { term1: CoastlineObject<'Term'>, term2: CoastlineObject<'Term'> }
-    'OneListIsNotEmpty'            : { list1: CoastlineObject<'TermList'>,      list2: CoastlineObject<'TermList'> }
-    'OneListIsEmpty'               : { list1: CoastlineObject<'TermList'>,      list2: CoastlineObject<'TermList'> }
-    'ListIsEmpty'                  : CoastlineObject<'TermList'>
-    'ListIsNotEmpty'               : CoastlineObject<'TermList'>
-    'IncorrectArity'               : { expected: number, actual: number }
+    'InputNotEqualTo'                   : number
+    'InputNotGreaterThanOrEqualTo'      : number
+    'ObjectNotOfType'                   : { object: AnyCoastlineObject, expected: keyof CoastlineObjectValueMap }
+    'ObjectNotOfAnyType'                : { expected: (keyof CoastlineObjectValueMap)[], actual: keyof CoastlineObjectValueMap }
+    'TermsAreNotEqual'                  : { term1: CoastlineObject<Term>, term2: CoastlineObject<Term> }
+    'TermsAreEqual'                     : { term1: CoastlineObject<Term>, term2: CoastlineObject<Term> }
+    'OneListIsNotEmpty'                 : { list1: CoastlineObject<'TermList'>,      list2: CoastlineObject<'TermList'> }
+    'OneListIsEmpty'                    : { list1: CoastlineObject<'TermList'>,      list2: CoastlineObject<'TermList'> }
+    'ListIsEmpty'                       : CoastlineObject<'TermList'>
+    'ListIsNotEmpty'                    : CoastlineObject<'TermList'>
+    'IncorrectArity'                    : { expected: number, actual: number }
+    'ListsHaveDifferentLengths'         : { list1: CoastlineObject<'TermList'>, list2: CoastlineObject<'TermList'> }
+    'CannotSwapError'                   : undefined
+    'UnificationProblemIsNotEmpty'      : undefined
+    'UnificationProblemIsEmpty'         : undefined
+    'VariableDoesNotOccurInTerm'        : { variable: CoastlineObject<'TermVariable'>, term: CoastlineObject<Term> }
+    'VariableOccursInTerm'              : { variable: CoastlineObject<'TermVariable'>, term: CoastlineObject<Term> }
+    'SubstitutionVariablesAppearInTerm' : undefined
+    'WithMessage'                       : string
 }
 
 export const cte = <CT extends keyof CoastlineErrorValueMap>(ct: CT, r: AnyCoastlineError): r is CoastlineError<CT> => defined(r) && r.type === ct
@@ -39,6 +47,8 @@ export const display_coastline_error = (e: AnyCoastlineError) => {
             return display_coastline_object(e.value)
         if (cte('ListIsNotEmpty', e))
             return display_coastline_object(e.value)
+        if (cte('ListsHaveDifferentLengths', e))
+            return { list1: display_coastline_object(e.value.list1), list2: display_coastline_object(e.value.list2) }
         return e.value
     }
 

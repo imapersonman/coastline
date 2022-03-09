@@ -14,10 +14,10 @@ export function substitute(sub_v: Variable, with_ast: Ast, in_ast: Ast): Ast {
         (v) => syntactic_equality(v, sub_v) ? with_ast : v,
         () => in_ast,
         (b, t, s) => {
-            if (syntactic_equality(b, sub_v))
-                return in_ast
-            const mod_b = possibly_rename_bound(b, s, sub_v, with_ast)
             const mod_t = substitute(sub_v, with_ast, t)
+            if (syntactic_equality(b, sub_v))
+                return binder_of_same_class(in_ast, b, mod_t, s)
+            const mod_b = possibly_rename_bound(b, s, sub_v, with_ast)
             const mod_s = substitute(sub_v, with_ast, substitute(b, mod_b, s))
             return binder_of_same_class(in_ast, mod_b, mod_t, mod_s)
         },

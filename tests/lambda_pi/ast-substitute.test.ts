@@ -18,7 +18,7 @@ const xm = new MetaVariable("x")
 test_substitute("MV not replaced", x, r, xm, xm)
 test_substitute("A", x, r, new TypeKind(), new TypeKind())
 const B = (b: Variable, t: Ast, s: Ast) => new Lambda(b, t, s)
-test_substitute("B case (d)", x, r, B(x, x, x), B(x, x, x))
+test_substitute("B case (d)", x, r, B(x, x, x), B(x, r, x))
 test_substitute("B case (e)", x, r, B(y, x, y), B(y, r, y))
 const [xy, ry, z] = [new Application(x, y), new Application(r, y), new GeneratedVariable("y", 1)]
 test_substitute("B case (f)", x, r, B(y, x, xy), B(y, r, ry))

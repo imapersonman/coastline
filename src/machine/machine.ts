@@ -5,7 +5,8 @@ import { is_coastline_error } from "./error"
 import { AnyCoastlineObject, display_coastline_object, is_coastline_object } from "./object"
 import { display_pending_operation, is_operator_app, PendingOperation, pending_operation } from "./operator"
 import { is_options_tree, path_from_options_tree } from "./options_tree"
-import { is_coastline_request } from "./request"
+import { is_coastline_request2 } from "./request"
+// import { is_coastline_request } from "./request"
 
 class CoastlineMachine { constructor(readonly c: CoastlineControl, readonly k: Stack<PendingOperation>) {} }
 const coastline_machine = (c: CoastlineControl, k: Stack<PendingOperation>): CoastlineMachine => new CoastlineMachine(c, k)
@@ -88,7 +89,7 @@ const machine_has_final_result = (m: CoastlineMachine): boolean =>
     is_coastline_object(m.c) && is_empty_stack(m.k)
 
 const machine_is_paused = (m: CoastlineMachine): boolean =>
-    is_options_tree(m.c) || is_coastline_request(m.c)
+    is_options_tree(m.c) || is_coastline_request2(m.c)
 
 const machine_is_running = (m: CoastlineMachine): boolean =>
     !machine_has_final_result(m) && !machine_has_error(m) && !machine_is_paused(m)
@@ -116,9 +117,9 @@ export const choose_machine_path = (m: CoastlineMachine, path_label: string): Co
 
 // Assumes that m's control is AnyCoastlineRequest and throws an exception if it is not.
 export const respond_to_machine_request = (m: CoastlineMachine, response: AnyCoastlineObject): CoastlineMachine => {
-    if (!is_coastline_request(m.c))
+    if (!is_coastline_request2(m.c))
         throw new Error
-    return coastline_machine(m.c.f(response), m.k)
+    return coastline_machine(response, m.k)
 }
 
 export type CoastlineCommand =

@@ -2,11 +2,10 @@ import { display_stack, Stack } from "../stack"
 import { CoastlineControl, display_coastline_control } from "./control"
 import { AnyCoastlineObject, display_coastline_object } from "./object"
 
-export class OperatorDefinition { constructor(readonly name: string, readonly f: (inputs: AnyCoastlineObject[]) => CoastlineControl) {} }
-export const operator_definition = (name: string, f: (inputs: AnyCoastlineObject[]) => CoastlineControl): OperatorDefinition => new OperatorDefinition(name, f)
+export class OperatorDefinition { constructor(readonly name: string, readonly parameter_names: string[], readonly f: (inputs: AnyCoastlineObject[]) => CoastlineControl) {} }
+export const operator_definition = (name: string, parameter_names: string[], f: (inputs: AnyCoastlineObject[]) => CoastlineControl): OperatorDefinition => new OperatorDefinition(name, parameter_names, f)
 
 export class OperatorApplication {
-
     constructor(
         readonly definition: OperatorDefinition,
         readonly controls: CoastlineControl[]

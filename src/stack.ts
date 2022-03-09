@@ -15,10 +15,16 @@ export const mk_stack = <Entry>(...entries: Entry[]): Stack<Entry> => {
     return new NonEmptyStack(first(entries), mk_stack(...rest(entries)))
 }
 
+export const empty_stack = new EmptyStack
+
 export const push_entry = <Entry>(stack: Stack<Entry>, entry: Entry): Stack<Entry> => new NonEmptyStack(entry, stack)
 export const push_entries = <Entry>(stack: Stack<Entry>, entries: Entry[]): Stack<Entry> =>
     is_empty(entries) ? stack
     : push_entry(push_entries(stack, rest(entries)), first(entries))
+
+export const concat_stacks = <Entry>(s1: Stack<Entry>, s2: Stack<Entry>): Stack<Entry> =>
+    !is_non_empty_stack(s1) ? s2
+    : new NonEmptyStack(s1.entry, concat_stacks(s1.rest, s2))
 
 export const pop_entry = <Entry>(stack: NonEmptyStack<Entry>): [Entry, Stack<Entry>] => [stack.entry, stack.rest]
 export const possibly_pop_n_entries = <Entry>(stack: Stack<Entry>, n: number): [Entry[], Stack<Entry>] | undefined => {

@@ -4,6 +4,8 @@ export function zip<T1, T2>(l1: T1[], l2: T2[]): [T1, T2][] {
     return l1.map((e, i) => [e, l2[i]])
 }
 
+export const arrays_equal = <T>(l1: T[], l2: T[], elements_equal: (t1: T, t2: T) => boolean = (t1, t2) => t1 === t2): boolean =>
+    l1.length === l2.length && zip(l1, l2).every(([t1, t2]) => elements_equal(t1, t2))
 export const first = <T>(arr: T[]): T => arr[0]
 
 export const last = <T>(arr: T[]) => arr[arr.length - 1]
