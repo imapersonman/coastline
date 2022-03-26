@@ -77,4 +77,3 @@ export class IndexedMetaVariable extends MetaVariable {
     parse(): MetaVariable { return this }
     get_index(): number { return this.index }
 }
-
