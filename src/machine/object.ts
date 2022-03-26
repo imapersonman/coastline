@@ -47,12 +47,15 @@ export type CoastlineObjectValueMap = {
     ECCPair: { pair_type: CoastlineObject<ECCTerm>, left: CoastlineObject<ECCTerm>, right: CoastlineObject<ECCTerm> }
     ECCProject: { project: 'left' | 'right', pair: CoastlineObject<ECCTerm> }
     ECCTermSet: CoastlineObject<ECCTerm>[]
+    ECCSD: number
+    ECCSDContext: CoastlineObject<'ECCVariable'>[]
 }
 
 export type ECCTerm =
     | 'ECCProp'
     | 'ECCType'
     | 'ECCVariable'
+    | 'ECCSD'
     | 'ECCApplication'
     | 'ECCArrow'
     | 'ECCProduct'
@@ -61,6 +64,21 @@ export type ECCTerm =
     | 'ECCSigma'
     | 'ECCPair'
     | 'ECCProject'
+
+export const ecc_term_types: ECCTerm[] = [
+    'ECCProp',
+    'ECCType',
+    'ECCVariable',
+    'ECCSD',
+    'ECCApplication',
+    'ECCArrow',
+    'ECCProduct',
+    'ECCPi',
+    'ECCLambda',
+    'ECCSigma',
+    'ECCPair',
+    'ECCProject'
+]
 
 export type ECCBinder =
     | 'ECCLambda'
@@ -76,6 +94,7 @@ export type Term = 'TermAtom' | 'TermVariable' | 'TermList'
 export type Substitution = 'EmptySub' | 'NonEmptySub'
 
 export const cta = <CT extends keyof CoastlineObjectValueMap>(ct: CT, ob: AnyCoastlineObject): ob is CoastlineObject<CT> => defined(ob) && ob.type === ct
+export const ctas = <CT extends keyof CoastlineObjectValueMap>(cts: CT[], ob: AnyCoastlineObject): ob is CoastlineObject<CT> => defined(ob) && cts.some((t) => cta(t, ob))
 export class CoastlineObject<CT extends keyof CoastlineObjectValueMap> { constructor(readonly type: CT, readonly value: CoastlineObjectValueMap[CT]) {} }
 export type AnyCoastlineObject = CoastlineObject<keyof CoastlineObjectValueMap>
 export const obj = <CT extends keyof CoastlineObjectValueMap>(type: CT, value: CoastlineObjectValueMap[CT]): CoastlineObject<CT> => new CoastlineObject(type, value)

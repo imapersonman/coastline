@@ -1,8 +1,8 @@
 import { isEqual, union, unionWith } from "lodash"
-import { declare, defined, first, is_string, rest, zip } from "../utilities"
+import { declare, defined, first, is_string, last, rest, zip } from "../utilities"
 import { CoastlineControl } from "./control"
 import { err } from "./error"
-import { AnyCoastlineObject, bin_tree_type, CoastlineObject, CoastlineObjectValueMap, cta, display_coastline_object, ECCBinder, ECCTerm, obj, object_constructor, Substitution, Term } from "./object"
+import { AnyCoastlineObject, bin_tree_type, CoastlineObject, CoastlineObjectValueMap, cta, ctas, display_coastline_object, ECCBinder, ECCTerm, ecc_term_types, obj, object_constructor, Substitution, Term } from "./object"
 import { OperatorDefinition, operator_app, operator_definition } from "./operator"
 import { options_tree } from "./options_tree"
 import { req2 } from "./request"
@@ -880,12 +880,13 @@ export const evaluate_boolean_pierce_term_def = operator_definition('evaluate_bo
 )
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////// PIERCE TYEPS AND PROGRAMMING LANGUAGES //////////////////////////////////////////
+////////////////////////////////////////// PIERCE TYPES AND PROGRAMMING LANGUAGES //////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const expect_ecc_term = expect_types('ECCProp', 'ECCType', 'ECCVariable', 'ECCApplication', 'ECCPi', 'ECCLambda', 'ECCSigma', 'ECCPair', 'ECCProject', 'ECCArrow', 'ECCProduct')
+const expect_ecc_term = expect_types(...ecc_term_types)
 const expect_ecc_prop = expect_type('ECCProp')
 const expect_ecc_type = expect_type('ECCType')
 const expect_ecc_variable = expect_type('ECCVariable')
+const expect_ecc_sd = expect_type('ECCSD')
 const expect_ecc_pair = expect_type('ECCPair')
 const expect_ecc_projection = expect_type('ECCProject')
 const expect_ecc_application = expect_type('ECCApplication')
@@ -904,6 +905,9 @@ export const type_universe_def = operator_definition('type_universe', ['order'],
 export const variable_def = operator_definition('variable', ['id'], (inputs) =>
     expect_string(inputs[0], (id) => obj('ECCVariable', id.value)))
 
+export const sd_def = operator_definition('static_distance', ['index'], (inputs) =>
+    expect_natural(inputs[0], (index) => obj('ECCSD', index.value)))
+
 export const application_def = operator_definition('application', ['head', 'arg'], (inputs) =>
     expect_ecc_term(inputs[0], (head) => expect_ecc_term(inputs[1], (arg) => obj('ECCApplication', { head, arg }))))
 
@@ -915,11 +919,13 @@ export const product_def = operator_definition('product', ['left_type', 'right_t
 
 export const pi_def = operator_definition('pi', ['bound', 'bound_type', 'scope'], (inputs) =>
     expect_ecc_variable(inputs[0], (bound) => expect_ecc_term(inputs[1], (bound_type) => expect_ecc_term(inputs[2], (scope) =>
-        obj('ECCPi', { bound, bound_type, scope })))))
+        { throw new Error }))))
+        // operator_app(ecc_term_abbreviate_def, [obj('ECCPi', { bound, bound_type, scope })])))))
 
 export const sigma_def = operator_definition('sigma', ['bound', 'bound_type', 'scope'], (inputs) =>
     expect_ecc_variable(inputs[0], (bound) => expect_ecc_term(inputs[1], (bound_type) => expect_ecc_term(inputs[2], (scope) =>
-        obj('ECCSigma', { bound, bound_type, scope })))))
+        { throw new Error }))))
+        // operator_app(ecc_term_abbreviate_def, [obj('ECCSigma', { bound, bound_type, scope })])))))
 
 export const lambda_def = operator_definition('lambda', ['bound', 'bound_type', 'scope'], (inputs) =>
     expect_ecc_variable(inputs[0], (bound) => expect_ecc_term(inputs[1], (bound_type) => expect_ecc_term(inputs[2], (scope) =>
@@ -939,6 +945,7 @@ export const ecc_term_options = () => options_tree([
     ['Prop', () => obj('ECCProp', undefined)],
     ['Type', () => operator_app(type_universe_def, [req2('Natural_Number')])],
     ['Variable', () => operator_app(variable_def, [req2('String')])],
+    ['Static Distance', () => operator_app(sd_def, [req2('Natural_Number')])],
     ['Application', () => operator_app(application_def, [
         ecc_term_options(),
         ecc_term_options()
@@ -1021,6 +1028,7 @@ export const ecc_free_variables_def = operator_definition('free_variables', ['te
         ['prop', () => expect_ecc_prop(term, () => ecc_term_set())],
         ['type', () => expect_ecc_type(term, () => ecc_term_set())],
         ['variable', () => expect_ecc_variable(term, (v) => ecc_term_set(v))],
+        ['static distance', () => expect_ecc_sd(term, () => ecc_term_set())],
         ['application', () => expect_ecc_application(term, (app) =>
             operator_app(union_ecc_term_set_def, [
                 operator_app(ecc_free_variables_def, [app.value.head]),
@@ -1145,10 +1153,11 @@ export const remove_from_ecc_term_set_acc_def = operator_definition('remove_from
 )
 
 export const check_ecc_term_abbreviate = (term: CoastlineObject<ECCTerm>): CoastlineControl =>
-    check_coastline_correctness(
-        ecc_term_abbreviate(term),
-        operator_app(ecc_term_abbreviate_def, [term])
-    )
+    { throw new Error('') }
+    // check_coastline_correctness(
+    //     ecc_term_abbreviate(term),
+    //     operator_app(ecc_term_abbreviate_def, [term])
+    // )
 
 const ecc_term_abbreviate = (term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
     if (cta('ECCPi', term)) {
@@ -1171,25 +1180,36 @@ const ecc_term_abbreviate = (term: CoastlineObject<ECCTerm>): CoastlineObject<EC
     return term
 }
 
-export const ecc_term_abbreviate_def = operator_definition('abbreviate', ['term'], (inputs) =>
+const ecc_shallow_term_abbreviate = (term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+    if (cta('ECCPi', term)) {
+        const scope_fvs = ecc_free_variables(term.value.scope)
+        if (!ecc_term_appears_in_term_set(term.value.bound, scope_fvs))
+            return obj('ECCArrow', {
+                input: term.value.bound_type,
+                output: term.value.scope
+            })
+        return term
+    } else if (cta('ECCSigma', term)) {
+        const scope_fvs = ecc_free_variables(term.value.scope)
+        if (!ecc_term_appears_in_term_set(term.value.bound, scope_fvs))
+            return obj('ECCProduct', { left: term.value.bound_type, right: term.value.scope })
+        return term
+    }
+    return term
+}
+
+export const ecc_shallow_term_abbreviate_def = operator_definition('abbreviate', ['term'], (inputs) =>
     expect_ecc_term(inputs[0], (term) => options_tree([
-        ['do not change', () => term],
-        ['to function type', () =>
-            cta('ECCPi', term) || cta('ECCSigma', term)
-            ? obj('ECCArrow', { input: term.value.bound_type, output: term.value.scope })
-            : err('WithMessage', 'You can only abbreviate Pi and Sigma types!')
-        ],
-        ['to product type', () =>
-            cta('ECCPi', term) || cta('ECCSigma', term)
-            ? obj('ECCProduct', { left: term.value.bound_type, right: term.value.scope })
-            : err('WithMessage', 'You can only abbreviate Pi and Sigma types!')
-        ],
+        // ['do not change', () => cta('') term],
+        // ['to arrow type', () => expect_pi_term
+        // ],
+        // ['to product type', () =>
+        //     cta('ECCPi', term) || cta('ECCSigma', term)
+        //     ? obj('ECCProduct', { left: term.value.bound_type, right: term.value.scope })
+        //     : err('WithMessage', 'You can only abbreviate Sigma types to Product types!')
+        // ],
     ]))
 )
-
-// export const ecc_alpha_equals = operator_definition('alpha_equals', ['term1', 'term2'], (inputs) =>
-
-// )
 
 const ecc_possibly_rename_bound_to_avoid_set = (bound: CoastlineObject<'ECCVariable'>, set: CoastlineObject<'ECCTermSet'>): CoastlineObject<'ECCVariable'> => {
     let current_bound = bound
@@ -1197,6 +1217,22 @@ const ecc_possibly_rename_bound_to_avoid_set = (bound: CoastlineObject<'ECCVaria
         current_bound = obj('ECCVariable', `${current_bound.value}'`)
     return current_bound
 }
+
+export const ecc_possibly_rename_bound_to_avoid_set_def = operator_definition('possibly_rename_bound_to_avoid_set', ['bound', 'set'], (inputs) =>
+    expect_ecc_variable(inputs[0], (bound) => expect_ecc_term_set(inputs[1], (set) => options_tree([
+        ['bound in set', () =>
+            !ecc_term_appears_in_term_set(bound, set) ? err('WithMessage', 'No the given bound variables does not appear in the given set, so feel free to re-use bound.')
+            : operator_app(ecc_possibly_rename_bound_to_avoid_set_def, [
+                obj('ECCVariable', `${bound.value}'`),
+                set
+            ])
+        ],
+        ['bound not in set', () =>
+            ecc_term_appears_in_term_set(bound, set) ? err('WithMessage', 'Yes the given bound variable does appear in the given set.')
+            : bound
+        ]
+    ])))
+)
 
 const ecc_binder_capture_avoiding_substitution = (replace_v: CoastlineObject<'ECCVariable'>, with_t: CoastlineObject<ECCTerm>, in_t: CoastlineObject<'ECCLambda' | 'ECCPi' | 'ECCSigma'>): CoastlineObject<'ECCLambda' | 'ECCPi' | 'ECCSigma'> => {
     const with_fvs = ecc_free_variables(with_t)
@@ -1215,6 +1251,8 @@ const ecc_binder_capture_avoiding_substitution = (replace_v: CoastlineObject<'EC
 }
 
 const ecc_capture_avoiding_substitution = (replace_v: CoastlineObject<'ECCVariable'>, with_t: CoastlineObject<ECCTerm>, in_t: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+    if (cta('ECCSD', in_t))
+        throw new Error('Cannot currently perform capture-avoiding substitution with static distance!')
     if (cta('ECCVariable', in_t) && ecc_terms_syntactically_equal(replace_v, in_t))
         return with_t
     // Recursive cases without binders.
@@ -1306,10 +1344,14 @@ export const ecc_capture_avoiding_substitution_def = operator_definition('captur
             // binding recursive: Lambda, Pi, Sigma
             ['in lambda', () => expect_ecc_lambda(in_t, (lambda) =>
                 operator_app(ecc_capture_avoiding_substitution_with_new_bound_variable_in_lambda_def, [
-                    operator_app(ecc_check_variable_not_in_set_def, [
-                        operator_app(variable_def, [
-                            req2('String'),
-                        ]),
+                    // operator_app(ecc_check_variable_not_in_set_def, [
+                    //     operator_app(variable_def, [
+                    //         req2('String'),
+                    //     ]),
+                    //     operator_app(ecc_free_variables_def, [replacement_t])
+                    // ]),
+                    operator_app(ecc_possibly_rename_bound_to_avoid_set_def, [
+                        lambda.value.bound,
                         operator_app(ecc_free_variables_def, [replacement_t])
                     ]),
                     to_replace_v,
@@ -1319,10 +1361,8 @@ export const ecc_capture_avoiding_substitution_def = operator_definition('captur
             )],
             ['in pi', () => expect_ecc_pi(in_t, (lambda) =>
                 operator_app(ecc_capture_avoiding_substitution_with_new_bound_variable_in_pi_def, [
-                    operator_app(ecc_check_variable_not_in_set_def, [
-                        operator_app(variable_def, [
-                            req2('String'),
-                        ]),
+                    operator_app(ecc_possibly_rename_bound_to_avoid_set_def, [
+                        lambda.value.bound,
                         operator_app(ecc_free_variables_def, [replacement_t])
                     ]),
                     to_replace_v,
@@ -1332,10 +1372,8 @@ export const ecc_capture_avoiding_substitution_def = operator_definition('captur
             )],
             ['in sigma', () => expect_ecc_sigma(in_t, (lambda) =>
                 operator_app(ecc_capture_avoiding_substitution_with_new_bound_variable_in_sigma_def, [
-                    operator_app(ecc_check_variable_not_in_set_def, [
-                        operator_app(variable_def, [
-                            req2('String'),
-                        ]),
+                    operator_app(ecc_possibly_rename_bound_to_avoid_set_def, [
+                        lambda.value.bound,
                         operator_app(ecc_free_variables_def, [replacement_t])
                     ]),
                     to_replace_v,
@@ -1396,18 +1434,460 @@ export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_sigma_
     ))))
 )
 
-// const ecc_binder_capture_avoiding_substitution = (replace_v: CoastlineObject<'ECCVariable'>, with_t: CoastlineObject<ECCTerm>, in_t: CoastlineObject<ECCBinder>): CoastlineObject<ECCBinder> => {
-//     const with_fvs = ecc_free_variables(with_t)
-//     const new_bound = ecc_possibly_rename_bound_to_avoid_set(in_t.value.bound, with_fvs)
-//     return obj(in_t.type, {
-//         bound: new_bound,
-//         bound_type: ecc_capture_avoiding_substitution(replace_v, with_t, in_t.value.bound_type),
-//         scope: ecc_capture_avoiding_substitution(
-//             replace_v,
-//             with_t,
-//             in_t.value.bound.value !== new_bound.value
-//             ? in_t.value.bound
-//             : ecc_capture_avoiding_substitution(in_t.value.bound, new_bound, in_t.value.scope)
-//         )
-//     })
-// }
+// (ECCTerm, ECCTerm) => Boolean
+export const ecc_terms_equal_def = operator_definition('terms_equal', ['term1', 'term2'], (inputs) =>
+    expect_ecc_term(inputs[0], (term1) => expect_ecc_term(inputs[1], (term2) =>
+        options_tree([
+            ['different types of ECCTerms', () => term1.type === term2.type ? err('WithMessage', 'You sure they have different types?') : obj('Boolean', false)],
+            ['both Prop', () => expect_ecc_prop(term1, () => expect_ecc_prop(term2, () => obj('Boolean', true)))],
+            ['both Type', () => expect_ecc_type(term1, (tu1) => expect_ecc_type(term2, (tu2) =>
+                options_tree([
+                    ['orders are the same', () => tu1.value !== tu2.value ? err('WithMessage', 'The orders are not the same.  Try again.') : obj('Boolean', true)],
+                    ['orders are not the same', () => tu1.value === tu2.value ? err('WithMessage', 'The orders are the same.  Try again.') : obj('Boolean', false)]
+                ])
+            ))],
+            ['both Variable', () => expect_ecc_variable(term1, (v1) => expect_ecc_variable(term2, (v2) =>
+                options_tree([
+                    ['ids are the same', () => v1.value !== v2.value ? err('WithMessage', 'The ids are not the same.  Try again.') : obj('Boolean', true)],
+                    ['ids are not the same', () => v1.value === v2.value ? err('WithMessage', 'The ids are the same.  Try again.') : obj('Boolean', false)]
+                ])
+            ))],
+            ['both Static Distances', () => expect_ecc_sd(term1, (sd1) => expect_ecc_sd(term2, (sd2) =>
+                options_tree([
+                    ['indices are the same', () => sd1.value !== sd2.value ? err('WithMessage', 'The ids are not the same.  Try again.') : obj('Boolean', true)],
+                    ['indices are not the same', () => sd1.value === sd2.value ? err('WithMessage', 'The ids are the same.  Try again.') : obj('Boolean', false)]
+                ])
+            ))],
+            ['both Application', () => expect_ecc_application(term1, (a1) => expect_ecc_application(term2, (a2) =>
+                operator_app(and_def, [
+                    operator_app(ecc_terms_equal_def, [a1.value.head, a2.value.head]),
+                    operator_app(ecc_terms_equal_def, [a1.value.arg, a2.value.arg])
+                ])
+            ))],
+            ['Both Arrow', () => expect_ecc_arrow(term1, (a1) => expect_ecc_arrow(term2, (a2) =>
+                operator_app(and_def, [
+                    operator_app(ecc_terms_equal_def, [a1.value.input, a2.value.input]),
+                    operator_app(ecc_terms_equal_def, [a1.value.output, a2.value.output])
+                ])
+            ))],
+            ['Both Product', () => expect_ecc_product(term1, (p1) => expect_ecc_product(term2, (p2) =>
+                operator_app(and_def, [
+                    operator_app(ecc_terms_equal_def, [p1.value.left, p2.value.left]),
+                    operator_app(ecc_terms_equal_def, [p1.value.right, p2.value.right])
+                ])
+            ))],
+            ['both Pair', () => expect_ecc_pair(term1, (p1) => expect_ecc_pair(term2, (p2) =>
+                operator_app(and_def, [
+                    operator_app(ecc_terms_equal_def, [p1.value.pair_type, p2.value.pair_type]),
+                    operator_app(and_def, [
+                        operator_app(ecc_terms_equal_def, [p1.value.left, p2.value.left]),
+                        operator_app(ecc_terms_equal_def, [p1.value.right, p2.value.right])
+                    ])
+                ])
+            ))],
+            ['both Left Projection', () => expect_ecc_projection(term1, (lp1) => expect_ecc_projection(term2, (lp2) =>
+                lp1.value.project !== 'left' || lp2.value.project !== 'left' ? err('WithMessage', 'One of the two term\'s is not a left projection!')
+                : operator_app(ecc_terms_equal_def, [lp1.value.pair, lp2.value.pair])
+            ))],
+            ['both Right Projection', () => expect_ecc_projection(term1, (lp1) => expect_ecc_projection(term2, (lp2) =>
+                lp1.value.project !== 'right' || lp2.value.project !== 'right' ? err('WithMessage', 'One of the two term\'s is not a left projection!')
+                : operator_app(ecc_terms_equal_def, [lp1.value.pair, lp2.value.pair])
+            ))],
+            ['Both Lambda', () => expect_ecc_lambda(term1, (l1) => expect_ecc_lambda(term2, (l2) =>
+                operator_app(and_def, [
+                    operator_app(ecc_terms_equal_def, [l1.value.bound, l2.value.bound]),
+                    operator_app(ecc_terms_equal_def, [l1.value.bound_type, l2.value.bound_type]),
+                    operator_app(ecc_terms_equal_def, [l1.value.scope, l2.value.scope])
+                ])
+            ))],
+            ['Both Pi', () => expect_ecc_pi(term1, (p1) => expect_ecc_pi(term2, (p2) =>
+                operator_app(and_def, [
+                    operator_app(ecc_terms_equal_def, [p1.value.bound, p2.value.bound]),
+                    operator_app(ecc_terms_equal_def, [p1.value.bound_type, p2.value.bound_type]),
+                    operator_app(ecc_terms_equal_def, [p1.value.scope, p2.value.scope])
+                ])
+            ))],
+            ['Both Sigma', () => expect_ecc_sigma(term1, (s1) => expect_ecc_sigma(term2, (s2) =>
+                operator_app(and_def, [
+                    operator_app(ecc_terms_equal_def, [s1.value.bound, s2.value.bound]),
+                    operator_app(ecc_terms_equal_def, [s1.value.bound_type, s2.value.bound_type]),
+                    operator_app(ecc_terms_equal_def, [s1.value.scope, s2.value.scope])
+                ])
+            ))]
+        ])
+    ))
+)
+
+const ecc_terms_alpha_equal = (term1: CoastlineObject<ECCTerm>, term2: CoastlineObject<ECCTerm>): boolean => {
+    return ecc_terms_syntactically_equal(
+        ecc_static_distance(term1),
+        ecc_static_distance(term2))
+}
+
+// (ECCTerm, ECCTerm) => Boolean
+export const ecc_terms_alpha_equal_def = operator_definition('alpha_equals', ['term1', 'term2'], (inputs) =>
+    expect_ecc_term(inputs[0], (term1) => expect_ecc_term(inputs[1], (term2) =>
+        operator_app(ecc_terms_equal_def, [
+            operator_app(ecc_static_distance_def, [obj('ECCSDContext', []), term1]),
+            operator_app(ecc_static_distance_def, [obj('ECCSDContext', []), term2])
+        ])
+    ))
+)
+
+const ecc_static_distance = (term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+    const static_distance_acc = (acc: CoastlineObject<'ECCVariable'>[], term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+        if (cta('ECCVariable', term)) {
+            const v_index = acc.findIndex((v) => term.value === v.value)
+            if (v_index === -1)
+                return term
+            return obj('ECCSD', v_index)
+        }
+        if (cta('ECCArrow', term))
+            return obj('ECCArrow', {
+                input: static_distance_acc(acc, term.value.input),
+                output: static_distance_acc(acc, term.value.output)
+            })
+        if (cta('ECCProduct', term))
+            return obj('ECCProduct', {
+                left: static_distance_acc(acc, term.value.left),
+                right: static_distance_acc(acc, term.value.right)
+            })
+        if (cta('ECCPair', term))
+            return obj('ECCPair', {
+                pair_type: static_distance_acc(acc, term.value.pair_type),
+                left: static_distance_acc(acc, term.value.left),
+                right: static_distance_acc(acc, term.value.right)
+            })
+        if (cta('ECCProject', term))
+            return obj('ECCProject', {
+                project: term.value.project,
+                pair: static_distance_acc(acc, term.value.pair)
+            })
+        if (cta('ECCApplication', term))
+            return obj('ECCApplication', {
+                head: static_distance_acc(acc, term.value.head),
+                arg: static_distance_acc(acc, term.value.arg)
+            })
+        if (ctas(['ECCLambda', 'ECCPi', 'ECCSigma'], term)) {
+            const scope_acc = [term.value.bound, ...acc]
+            return obj(term.type, {
+                bound: obj('ECCVariable', ''),
+                bound_type: static_distance_acc(acc, term.value.bound_type),
+                scope: static_distance_acc(scope_acc, term)
+            })
+        }
+        return term
+    }
+    return static_distance_acc([], term)
+}
+
+const js_ecc_binders_alpha_equal = (term1: CoastlineObject<ECCBinder>, term2: CoastlineObject<ECCBinder>): CoastlineControl =>
+    operator_app(and_def, [
+        operator_app(ecc_terms_alpha_equal_def, [term1.value.bound_type, term2.value.bound_type]),
+        operator_app(ecc_terms_alpha_equal_def, [
+            term1.value.scope,
+            operator_app(ecc_capture_avoiding_substitution_def, [
+                term2.value.bound,
+                term1.value.bound,
+                term2.value.scope
+            ])
+        ])
+    ])
+
+export const expect_ecc_sd_context = expect_type('ECCSDContext')
+
+// (ECCSDContext, Natural_Number, ECCTerm) => ECCSD
+export const ecc_static_distance_of_variable_def = operator_definition('static_distance_of_variable', ['distance_context', 'current_distance', 'variable'], (inputs) =>
+    expect_ecc_sd_context(inputs[0], (sd_ctx) => expect_natural(inputs[1], (current_sd) => expect_ecc_term(inputs[2], (variable) =>
+        options_tree([
+            ['variable is free', () =>
+                defined(sd_ctx.value.find((v) => ecc_terms_syntactically_equal(v, variable)))
+                ? err('WithMessage', 'The Variable is not free as it occurs in the distance context.  Keep looking.')
+                : variable
+            ],
+            ['found variable', () =>
+                sd_ctx.value.length === 0 ? err('WithMessage', 'The Variable could not have been found in an empty cistance context.')
+                : first(sd_ctx.value).value !== variable.value ? err('WithMessage', 'Keep searching for the Variable in the distance context.')
+                : obj('ECCSD', current_sd.value)
+            ],
+            ['keep looking for variable', () =>
+                sd_ctx.value.length === 0 ? err('WithMessage', 'Cannot keep searching through an empty distance context!')
+                : first(sd_ctx.value).value === variable.value ? err('WithMessage', 'Try again.')
+                : operator_app(ecc_static_distance_of_variable_def, [obj('ECCSDContext', rest(sd_ctx.value)), obj('Natural_Number', current_sd.value + 1), variable])
+            ]
+        ])
+    )))
+)
+
+// (ECCSDContext, ECCTerm) => ECCTerm
+export const ecc_static_distance_def = operator_definition('static_distance', ['distance_context', 'term'], (inputs) =>
+    expect_ecc_sd_context(inputs[0], (sd_ctx) => expect_ecc_term(inputs[1], (term) => options_tree([
+        ['do not change', () => expect_types('ECCProp', 'ECCType', 'ECCVariable')(term, () =>
+            cta('ECCVariable', term) && defined(sd_ctx.value.find((v) => term.value === v.value))
+            ? err('WithMessage', 'The variable is in the distance context, so it should change.')
+            : term
+        )],
+        ['replace with static distance', () => expect_ecc_variable(term, (v) =>
+            operator_app(ecc_static_distance_of_variable_def, [sd_ctx, obj('Natural_Number', 0), v])
+        )],
+        ['Application', () => expect_ecc_application(term, (a) =>
+            operator_app(application_def, [
+                operator_app(ecc_static_distance_def, [sd_ctx, a.value.head]),
+                operator_app(ecc_static_distance_def, [sd_ctx, a.value.arg])
+            ])
+        )],
+        ['Arrow', () => expect_ecc_arrow(term, (a) =>
+            operator_app(arrow_def, [
+                operator_app(ecc_static_distance_def, [sd_ctx, a.value.input]),
+                operator_app(ecc_static_distance_def, [sd_ctx, a.value.output])
+            ])
+        )],
+        ['Product', () => expect_ecc_product(term, (p) =>
+            operator_app(product_def, [
+                operator_app(ecc_static_distance_def, [sd_ctx, p.value.left]),
+                operator_app(ecc_static_distance_def, [sd_ctx, p.value.right])
+            ])
+        )],
+        ['Pair', () => expect_ecc_pair(term, (p) =>
+            operator_app(pair_def, [
+                operator_app(ecc_static_distance_def, [sd_ctx, p.value.pair_type]),
+                operator_app(ecc_static_distance_def, [sd_ctx, p.value.left]),
+                operator_app(ecc_static_distance_def, [sd_ctx, p.value.right])
+            ])
+        )],
+        ['Left Projection', () => expect_ecc_projection(term, (lp) =>
+            lp.value.project !== 'left' ? err('WithMessage', 'The ECCTerm is not a left projection!')
+            : operator_app(left_projection_def, [sd_ctx, lp.value.pair])
+        )],
+        ['Right Projection', () => expect_ecc_projection(term, (rp) =>
+            rp.value.project !== 'right' ? err('WithMessage', 'The ECCTerm is not a right projection!')
+            : operator_app(left_projection_def, [sd_ctx, rp.value.pair])
+        )],
+        ['Lambda', () => expect_ecc_lambda(term, (l) =>
+            operator_app(lambda_def, [
+                obj('ECCVariable', ''),
+                operator_app(ecc_static_distance_def, [sd_ctx, l.value.bound_type]),
+                operator_app(ecc_static_distance_def, [obj('ECCSDContext', [l.value.bound, ...sd_ctx.value]), l.value.scope])
+            ])
+        )],
+        ['Pi', () => expect_ecc_pi(term, (l) =>
+            operator_app(pi_def, [
+                obj('ECCVariable', ''),
+                operator_app(ecc_static_distance_def, [sd_ctx, l.value.bound_type]),
+                operator_app(ecc_static_distance_def, [obj('ECCSDContext', [l.value.bound, ...sd_ctx.value]), l.value.scope])
+            ])
+        )],
+        ['Sigma', () => expect_ecc_sigma(term, (l) =>
+            operator_app(sigma_def, [
+                obj('ECCVariable', ''),
+                operator_app(ecc_static_distance_def, [sd_ctx, l.value.bound_type]),
+                operator_app(ecc_static_distance_def, [obj('ECCSDContext', [l.value.bound, ...sd_ctx.value]), l.value.scope])
+            ])
+        )]
+    ])))
+)
+
+const ecc_is_beta_redex = (t: CoastlineObject<ECCTerm>): boolean =>
+    cta('ECCApplication', t) && cta('ECCLambda', t.value.head)
+
+const ecc_is_left_sigma_redex = (t: CoastlineObject<ECCTerm>): boolean =>
+    cta('ECCProject', t) && t.value.project === 'left' && cta('ECCPair', t.value.pair)
+
+const ecc_is_right_sigma_redex = (t: CoastlineObject<ECCTerm>): boolean =>
+    cta('ECCProject', t) && t.value.project === 'left' && cta('ECCPair', t.value.pair)
+
+const ecc_term_children = (t: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm>[] => {
+    if (cta('ECCApplication', t))
+        return [t.value.head, t.value.arg]
+    if (cta('ECCArrow', t))
+        return [t.value.input, t.value.output]
+    if (cta('ECCProduct', t))
+        return [t.value.left, t.value.right]
+    if (cta('ECCPair', t))
+        return [t.value.pair_type, t.value.left, t.value.right]
+    if (cta('ECCProject', t))
+        return [t.value.pair]
+    if (cta('ECCLambda', t) || cta('ECCPi', t) || cta('ECCSigma', t))
+        return [t.value.bound_type, t.value.scope]
+    return []
+}
+
+const ecc_term_is_in_beta_sigma_normal_form = (t: CoastlineObject<ECCTerm>): boolean =>
+    !ecc_is_beta_redex(t) && !ecc_is_left_sigma_redex(t) && !ecc_is_right_sigma_redex(t)
+    && ecc_term_children(t).every(ecc_term_is_in_beta_sigma_normal_form)
+
+const ecc_reduce_completely = (term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+    if (cta('ECCApplication', term)) {
+        const reduced_head = ecc_reduce_completely(term.value.head)
+        // If beta redex
+        if (cta('ECCLambda', reduced_head))
+            return ecc_reduce_completely(
+                ecc_capture_avoiding_substitution(
+                    reduced_head.value.bound,
+                    ecc_reduce_completely(term.value.arg),
+                    reduced_head.value.scope))
+        return obj('ECCApplication', {
+            head: ecc_reduce_completely(term.value.head),
+            arg: ecc_reduce_completely(term.value.arg)
+        })
+    } else if (cta('ECCProject', term)) {
+        // If sigma redex
+        if (cta('ECCPair', term.value.pair))
+            if (term.value.project === 'left')
+                return ecc_reduce_completely(term.value.pair.value.left)
+            else
+                return ecc_reduce_completely(term.value.pair.value.right)
+        return obj('ECCProject', {
+            project: term.value.project,
+            pair: ecc_reduce_completely(term.value.pair)
+        })
+    } else if (cta('ECCArrow', term))
+        return obj('ECCArrow', {
+            input: ecc_reduce_completely(term.value.input),
+            output: ecc_reduce_completely(term.value.output)
+        })
+    else if (cta('ECCProduct', term))
+        return obj('ECCProduct', {
+            left: ecc_reduce_completely(term.value.left),
+            right: ecc_reduce_completely(term.value.right)
+        })
+    else if (cta('ECCLambda', term))
+        return obj('ECCLambda', {
+            bound: term.value.bound,
+            bound_type: ecc_reduce_completely(term.value.bound_type),
+            scope: ecc_reduce_completely(term.value.scope)
+        })
+    else if (cta('ECCPi', term))
+        return obj('ECCPi', {
+            bound: term.value.bound,
+            bound_type: ecc_reduce_completely(term.value.bound_type),
+            scope: ecc_reduce_completely(term.value.scope)
+        })
+    else if (cta('ECCSigma', term))
+        return obj('ECCSigma', {
+            bound: term.value.bound,
+            bound_type: ecc_reduce_completely(term.value.bound_type),
+            scope: ecc_reduce_completely(term.value.scope)
+        })
+    return term
+}
+
+// (ECCTerm) => ECCTerm
+export const ecc_reduce_completely_def = operator_definition('reduce_completely', ['term'], (inputs) =>
+    expect_ecc_term(inputs[0], (term) =>
+        options_tree([
+            ['already reduced', () => !ecc_term_is_in_beta_sigma_normal_form(term) ? err('WithMessage', 'It\'s not.') : term],
+            ['is β-redex', () => expect_ecc_application(term, (app) => expect_ecc_lambda(app.value.head, (lam) =>
+                operator_app(ecc_reduce_completely_def, [
+                    operator_app(ecc_capture_avoiding_substitution_def, [
+                        lam.value.bound,
+                        operator_app(ecc_reduce_completely_def, [app.value.arg]),
+                        lam.value.scope
+                    ])
+                ])
+            ))],
+            ['is left σ-redex', () => expect_ecc_projection(term, (pr) => expect_ecc_pair(pr.value.pair, (pa) =>
+                pr.value.project !== 'left' ? err('WithMessage', 'This is a right projection.')
+                : operator_app(ecc_reduce_completely_def, [pa.value.left])
+            ))],
+            ['is right σ-redex', () => expect_ecc_projection(term, (pr) => expect_ecc_pair(pr.value.pair, (pa) =>
+                pr.value.project !== 'right' ? err('WithMessage', 'This is a left projection.')
+                : operator_app(ecc_reduce_completely_def, [pa.value.right])
+            ))],
+            ['Application', () => expect_ecc_application(term, (a) =>
+                ecc_is_beta_redex(a) ? err('WithMessage', 'But this is a redex!')
+                : operator_app(application_def, [
+                    operator_app(ecc_reduce_completely_def, [a.value.head]),
+                    operator_app(ecc_reduce_completely_def, [a.value.arg])
+                ])
+            )],
+            ['Arrow', () => expect_ecc_arrow(term, (a) =>
+                operator_app(arrow_def, [
+                    operator_app(ecc_reduce_completely_def, [a.value.input]),
+                    operator_app(ecc_reduce_completely_def, [a.value.output])
+                ])
+            )],
+            ['Product', () => expect_ecc_product(term, (p) =>
+                operator_app(product_def, [
+                    operator_app(ecc_reduce_completely_def, [p.value.left]),
+                    operator_app(ecc_reduce_completely_def, [p.value.right])
+                ])
+            )],
+            ['Pair', () => expect_ecc_pair(term, (p) =>
+                operator_app(pair_def, [
+                    operator_app(ecc_reduce_completely_def, [p.value.pair_type]),
+                    operator_app(ecc_reduce_completely_def, [p.value.left]),
+                    operator_app(ecc_reduce_completely_def, [p.value.right]),
+                ])
+            )],
+            ['Left Projection', () => expect_ecc_projection(term, (lp) =>
+                ecc_is_left_sigma_redex(lp) ? err('WithMessage', 'But this is a redex!')
+                : lp.value.project !== 'left' ? err('WithMessage', 'The ECCTerm is not a left projection!')
+                : operator_app(left_projection_def, [
+                    operator_app(ecc_reduce_completely_def, [lp.value.pair])
+                ])
+            )],
+            ['Right Projection', () => expect_ecc_projection(term, (rp) =>
+                ecc_is_right_sigma_redex(rp) ? err('WithMessage', 'But this is a redex!')
+                : rp.value.project !== 'right' ? err('WithMessage', 'The ECCTerm is not a right projection!')
+                : operator_app(right_projection_def, [
+                    operator_app(ecc_reduce_completely_def, [rp.value.pair])
+                ])
+            )],
+            ['Lambda', () => expect_ecc_lambda(term, (l) =>
+                operator_app(lambda_def, [
+                    l.value.bound,
+                    operator_app(ecc_reduce_completely_def, [l.value.bound_type]),
+                    operator_app(ecc_reduce_completely_def, [l.value.scope])
+                ])
+            )],
+            ['Pi', () => expect_ecc_pi(term, (l) =>
+                operator_app(pi_def, [
+                    l.value.bound,
+                    operator_app(ecc_reduce_completely_def, [l.value.bound_type]),
+                    operator_app(ecc_reduce_completely_def, [l.value.scope])
+                ])
+            )],
+            ['Sigma', () => expect_ecc_sigma(term, (l) =>
+                operator_app(sigma_def, [
+                    l.value.bound,
+                    operator_app(ecc_reduce_completely_def, [l.value.bound_type]),
+                    operator_app(ecc_reduce_completely_def, [l.value.scope])
+                ])
+            )]
+        ])
+    )
+)
+
+const ecc_terms_beta_equal = (term1: CoastlineObject<ECCTerm>, term2: CoastlineObject<ECCTerm>): boolean => {
+    return ecc_terms_alpha_equal(
+        ecc_reduce_completely(term1),
+        ecc_reduce_completely(term2)
+    )
+}
+
+// (ECCTerm, ECCTerm) => boolean
+export const ecc_beta_equality_def = operator_definition('beta_equality', ['term1', 'term2'], (inputs) =>
+    expect_ecc_term(inputs[0], (term1) => expect_ecc_term(inputs[1], (term2) =>
+        operator_app(ecc_terms_alpha_equal_def, [
+            operator_app(ecc_reduce_completely_def, [term1]),
+            operator_app(ecc_reduce_completely_def, [term2])
+        ])
+    ))
+)
+
+const ecc_subtype_of = (term1: CoastlineObject<ECCTerm>, term2: CoastlineObject<ECCTerm>): boolean => {
+    return ecc_terms_beta_equal(term1, term2)
+}
+
+// () => boolean
+export const ecc_subtype_of_def = operator_definition('subtype_of', ['term1', 'term2'], (inputs) =>
+    expect_ecc_term(inputs[0], (term1) => expect_ecc_term(inputs[1], (term2) =>
+        options_tree([
+            // ['terms are equal', () => ctas(['ECCSigma', 'ECCPi', 'ECCProduct', 'ECCArrow', 'ECCType', 'ECCProp'], term1)
+            //     ? err('There are other clauses you should try before selecting this one')
+            //     : ],
+            // ['']
+        ])
+    ))
+)
