@@ -1,5 +1,7 @@
 import { Application, Ast, Constant, Lambda, MetaVariable, Pi, TypeKind, Variable } from "../../src/lambda_pi/ast";
 import { contains } from "../../src/lambda_pi/contains";
+import { perm } from "../../src/lambda_pi/permutation";
+import { sus } from "../../src/lambda_pi/shorthands";
 
 function test_contains(name: string, parent: Ast, child: Ast, output: boolean) {
     const result = contains(parent, child)
@@ -41,5 +43,8 @@ test_contains("!contains(Pi, Constant)", P1, a, false)
 test_contains("contains(Application, TypeKind)", new Application(x, new TypeKind), new TypeKind, true)
 test_contains("contains(Application, TypeKind) swapped", new Application(new TypeKind, x), new TypeKind, true)
 test_contains("!contains(Application, TypeKind)", A1, new TypeKind, false)
+test_contains('suspension contains', sus(perm(), xm), xm, true)
+test_contains('suspension does not contains', sus(perm(), xm), new MetaVariable('Y'), false)
+test_contains('suspension does not contain atom in its permutation', sus(perm([x, y]), xm), x, false)
 
 test_contains("deep contains", new Application(new Application(new Application(new Application(a, xm), x), y), z), a, true)

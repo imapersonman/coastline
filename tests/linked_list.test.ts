@@ -1,4 +1,4 @@
-import { concat_linked_lists, empty_linked_list, linked_list, linked_list_contains, map_linked_list, non_empty_linked_list, reduce_linked_list_right, remove_from_linked_list, reverse_linked_list, union_linked_lists } from '../src/linked_list'
+import { add_unique_to_linked_list as add_unique_to_end_of_linked_list, add_unique_to_linked_list, concat_linked_lists, dedupe_linked_list, empty_linked_list, filter_linked_list, find_in_linked_list, is_non_empty_linked_list, LinkedList, linked_list, linked_list_contains, map_linked_list, non_empty_linked_list, reduce_linked_list_right, remove_from_linked_list, reverse_linked_list, union_linked_lists } from '../src/linked_list'
 
 describe('linked_list', () => {
     test('make empty', () => expect(
@@ -190,4 +190,45 @@ describe('union_linked_lists', () => {
     ).toEqual(
         linked_list(1, 2, 3, 0)
     ))
+})
+
+describe('deduped_linked_list', () => {
+    test('empty', () => expect(dedupe_linked_list()(linked_list())).toEqual(linked_list()))
+    test('5 elements no dupes', () => expect(dedupe_linked_list()(linked_list(1, 2, 3, 4, 5))).toEqual(linked_list(1, 2, 3, 4, 5)))
+    test('5 elements 3 dupes', () => expect(dedupe_linked_list()(linked_list(3, 2, 3, 3, 5))).toEqual(linked_list(3, 2, 5)))
+    test('10 elements all dupes', () => expect(dedupe_linked_list()(linked_list(1, 1, 1, 1, 1, 1, 1, 1, 1, 1))).toEqual(linked_list(1)))
+})
+
+describe('add_unique_to_end_of_linked_list', () => {
+    test('empty', () => expect(
+        add_unique_to_linked_list()(linked_list(), 1)
+    ).toEqual(
+        linked_list(1)
+    ))
+    test('1 element, not contained', () => expect(
+        add_unique_to_linked_list()(linked_list(2), 1)
+    ).toEqual(
+        linked_list(2, 1)
+    ))
+    test('2 elements, contained', () => expect(
+        add_unique_to_linked_list()(linked_list(1, 2), 1)
+    ).toEqual(
+        linked_list(1, 2)
+    ))
+})
+
+describe('filter_linked_list', () => {
+    const is_pos = (e: number) => e >= 0
+    test('empty', () => expect(filter_linked_list(linked_list(), is_pos)).toEqual(linked_list()))
+    test('1 element do keep', () => expect(filter_linked_list(linked_list(1), is_pos)).toEqual(linked_list(1)))
+    test('1 element do not keep', () => expect(filter_linked_list(linked_list(-1), is_pos)).toEqual(linked_list()))
+    test('3 elements keep 2', () => expect(filter_linked_list(linked_list(2, -3, 4), is_pos)).toEqual(linked_list(2, 4)))
+})
+
+describe('find_in_linked_list', () => {
+    const is_pos = (e: number) => e >= 0
+    test('empty', () => expect(find_in_linked_list(linked_list(), is_pos)).toBeUndefined())
+    test('5 elements not found', () => expect(find_in_linked_list(linked_list(-1, -2, -3, -4, -5), is_pos)).toBeUndefined())
+    test('5 elements found', () => expect(find_in_linked_list(linked_list(-1, 3, -4, -1, -5), is_pos)).toEqual(3))
+    test('5 elements found multiple', () => expect(find_in_linked_list(linked_list(-1, 10, -4, 3, -5), is_pos)).toEqual(10))
 })

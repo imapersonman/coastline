@@ -1,5 +1,6 @@
 import { first, rest } from "../utilities"
-import { Application, Ast, Constant, GeneratedVariable, IndexedMetaVariable, Lambda, MetaVariable, NaturalNumber, Pi, TypeKind, Variable } from "./ast"
+import { Application, Ast, Constant, GeneratedVariable, IndexedMetaVariable, Lambda, MetaVariable, NaturalNumber, Pi, Suspension, TypeKind, Variable } from "./ast"
+import { Permutation } from "./permutation"
 
 export const type_k = new TypeKind
 export const app = (h: Ast, a: Ast) => new Application(h, a)
@@ -12,6 +13,7 @@ export const flapp = (head: Ast, arg0: Ast, ...rest_args: Ast[]): Application =>
     if (rest_args.length === 0) return app(head, arg0)
     return app(flapp(head, arg0, ...rest_args.slice(0, -1)), rest_args[rest_args.length - 1])
 }
+export const sus = (permutation: Permutation, mv: MetaVariable): Suspension => new Suspension(permutation, mv)
 export const ovlist = (...names: string[]) => names.map((name) => ov(name))
 export const mvlist = (...names: string[]) => names.map((name) => mv(name))
 export const clist = (...names: string[]) => names.map((name) => con(name))

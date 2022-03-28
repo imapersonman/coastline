@@ -3,7 +3,12 @@ import { AbstractSyntaxTree, Application, Constant, Lambda, MetaVariable, Pi, Ty
 import { free_variables } from "./free_variables";
 import { new_variable } from "./new_variable";
 import { substitute } from "./substitute";
-import { ast_in, is_binder, v_union } from "./utilities";
+import { ast_in, is_binder, is_suspension, v_union } from "./utilities";
+
+// The addition of suspensions makes this implementation incorrect.
+// I'm adding an exception whenever two suspensions are encountered, but this implementation
+// should be replaced with one based on nominal unification once that algorithm is finished!
+// - Koissi, 3/26/2022
 
 type Ast = AbstractSyntaxTree
 export function alpha_equality(bound: Variable[], ast1: Ast, ast2: Ast): boolean {
@@ -20,21 +25,12 @@ export function alpha_equality(bound: Variable[], ast1: Ast, ast2: Ast): boolean
             && alpha_equality(bound, ast1.arg, ast2.arg)
     if (is_binder(ast1) && is_binder(ast2))
         return binders_of_type_equal(bound, ast1, ast2)
+    if (is_suspension(ast1) && is_suspension(ast2))
+        throw new Error(`Two suspensions encountered in alpha equality -- Replace with nominal unification-based implementation!!!!`)
     return false
 }
 
 function binders_of_type_equal<B extends Lambda | Pi>(bound: Variable[], b1: B, b2: B): boolean {
-    /*
-    if (!(b1 instanceof Lambda && b2 instanceof Lambda) && !(b1 instanceof Pi && b2 instanceof Pi))
-        return false
-    const b1_vars = v_union([b1.bound], free_variables([], b1.scope))
-    const new_var = new_variable(v_union(b1_vars, free_variables([], b2.scope)), b1.bound)
-    const renamed_b2_body = substitute(b1.bound, new_var, b2.scope)
-    const b2_body = substitute(b2.bound, b1.bound, renamed_b2_body)
-    const mod_bound = v_union(bound, [b1.bound])
-    return alpha_equality(bound, b1.type, b2.type)
-        && alpha_equality(mod_bound, b1.scope, b2_body)
-    */
    return binders_of_type_similar(
        false,
        (bound, b1, b2) => alpha_equality(bound, b1, b2),

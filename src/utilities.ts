@@ -59,3 +59,8 @@ export const object_from_entries = <T>(...entries: [string, T][]): { [key: strin
 export const display_or_undefined = <T>(display_func: (o: T) => any, o: T | undefined) =>
     defined(o) ? display_func(o) : 'undefined'
 
+export const match_defined = <T, Return>(v: T | undefined, def: (v: T) => Return, und: () => Return): Return => {
+    if (defined(v))
+        return def(v)
+    return und()
+}

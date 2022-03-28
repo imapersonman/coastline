@@ -12,6 +12,11 @@ export type LinkedList<Element> =
     | EmptyLinkedList
     | NonEmptyLinkedList<Element>
 
+export const is_linked_list = <Element>(l: unknown): l is LinkedList<Element> => is_empty_linked_list(l) || is_non_empty_linked_list(l)
+
+export const linked_list_as_array = <Element>(l: LinkedList<Element>): Element[] =>
+    reduce_linked_list_right(l, (acc, e) => [e, ...acc], [] as Element[])
+
 export const linked_list_iterator = function* <Element>(l: LinkedList<Element>) {
     let current = l
     while (is_non_empty_linked_list(current)) {
@@ -91,12 +96,29 @@ export const dedupe_linked_list = <Element>(equality: Eq<Element> = dequality) =
     return l
 }
 
-describe('deduped_linked_list', () => {
-    test('empty', () => expect(dedupe_linked_list()(linked_list())).toEqual(linked_list()))
-    test('5 elements no dupes', () => expect(dedupe_linked_list()(linked_list(1, 2, 3, 4, 5))).toEqual(linked_list(1, 2, 3, 4, 5)))
-    test('5 elements 3 dupes', () => expect(dedupe_linked_list()(linked_list(3, 2, 3, 3, 5))).toEqual(linked_list(3, 2, 5)))
-    test('10 elements all dupes', () => expect(dedupe_linked_list()(linked_list(1, 1, 1, 1, 1, 1, 1, 1, 1, 1))).toEqual(linked_list(1)))
-})
-
 export const union_linked_lists = <Element>(equality: Eq<Element> = dequality) => (l1: LinkedList<Element>, l2: LinkedList<Element>): LinkedList<Element> =>
     dedupe_linked_list(equality)(concat_linked_lists(l1, l2))
+
+// Adds to the end of the list.
+export const add_unique_to_linked_list = <Element>(equality: Eq<Element> = dequality) => (l: LinkedList<Element>, e: Element): LinkedList<Element> => {
+    if (is_non_empty_linked_list(l))
+        if (equality(l.head, e))
+            return l
+        else
+            return non_empty_linked_list(l.head, add_unique_to_linked_list(equality)(l.rest, e))
+    return non_empty_linked_list(e, empty_linked_list)
+}
+
+export const filter_linked_list = <Element>(l: LinkedList<Element>, should_keep: (e: Element) => boolean): LinkedList<Element> =>
+    reduce_linked_list_right(l, (acc, e) => should_keep(e) ? non_empty_linked_list(e, acc) : acc, empty_linked_list)
+
+export const add_to_end_of_linked_list = <Element>(l: LinkedList<Element>, e: Element): LinkedList<Element> =>
+    reduce_linked_list_right(l, (acc, head) => non_empty_linked_list(head, acc), non_empty_linked_list(e, empty_linked_list))
+
+export const find_in_linked_list = <Element>(l: LinkedList<Element>, predicate: (e: Element) => boolean): Element | undefined => {
+    if (!is_non_empty_linked_list(l))
+        return undefined
+    if (predicate(l.head))
+        return l.head
+    return find_in_linked_list(l.rest, predicate)
+}

@@ -7,6 +7,7 @@
 
 import { is_integer } from "../utilities";
 import { AbstractIdentifier, AbstractApplication, AbstractAbstraction } from "./abstract";
+import { Permutation } from "./permutation";
 
 // - a TypeKind
 export interface AbstractSyntaxTree {}
@@ -76,4 +77,8 @@ export class IndexedMetaVariable extends MetaVariable {
     constructor(readonly index: number) { super(`m_${index}`) }
     parse(): MetaVariable { return this }
     get_index(): number { return this.index }
+}
+
+export class Suspension implements AbstractSyntaxTree {
+    constructor(readonly permutation: Permutation, readonly meta_variable: MetaVariable) {}
 }

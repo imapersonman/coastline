@@ -2,6 +2,10 @@ import _ from "lodash";
 import { AbstractSyntaxTree, Application, Constant, Lambda, MetaVariable, Pi, TypeKind, Variable } from "./ast";
 import { ast_in, v_union } from "./utilities";
 
+// Suspensions don't change the implementation of this function, since the meta-variables
+// within them may or may not contain the variables in their swaps.
+// - Koissi, 3/26/2022.
+
 type Ast = AbstractSyntaxTree
 
 export function free_variables(bvs: Variable[], ast: Ast): Variable[] {

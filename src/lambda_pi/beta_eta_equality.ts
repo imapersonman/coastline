@@ -9,6 +9,10 @@ import { syntactic_equality } from "./syntactic_equality"
 import { to_weak_head_normal_form } from "./to_weak_head_normal_form"
 import { is_variable } from "./utilities"
 
+// Adding suspensions shouldn't break this implementation as long as we assume two suspensions to be
+// unequal to each other mod alpha-beta-eta conversion.
+// - Koissi, 3/26/2022.
+
 type Ast = AbstractSyntaxTree
 
 export function beta_eta_equality(ast1: Ast, ast2: Ast): boolean {

@@ -1,6 +1,8 @@
 import _ from "lodash"
-import { AbstractSyntaxTree, Application, Ast, Constant, GeneratedVariable, IndexedMetaVariable, Lambda, MetaVariable, NaturalNumber, Pi, TypeKind, Variable } from "./ast";
+import { linked_list_as_array } from "../linked_list";
+import { AbstractSyntaxTree, Application, Ast, Constant, GeneratedVariable, IndexedMetaVariable, Lambda, MetaVariable, NaturalNumber, Pi, Suspension, TypeKind, Variable } from "./ast";
 import { is_atom } from "./is_atom";
+import { Permutation, permutation_to_string, variables_in_permutation } from "./permutation";
 import { syntactic_equality } from "./syntactic_equality";
 
 export function v_union(vs1: Variable[], vs2: Variable[]): Variable[] {
@@ -46,6 +48,8 @@ export function ast_to_string(ast: Ast): string {
         return `λ(${ast.bound.id}: ${ast_to_string(ast.type)}).${ast_to_string(ast.scope)}`
     if (ast instanceof Pi)
         return `Π(${ast.bound.id}: ${ast_to_string(ast.type)}).${ast_to_string(ast.scope)}`
+    if (ast instanceof Suspension)
+        return `${permutation_to_string(ast.permutation)}•${ast_to_string(ast.meta_variable)}`
     throw new Error(`Can't convert unknown Ast to string:\n${JSON.stringify(ast)}`)
 }
 
@@ -56,6 +60,8 @@ export function max_gv_index_used_in(proof: Ast): number {
         return Math.max(max_gv_index_used_in(proof.bound), max_gv_index_used_in(proof.type), max_gv_index_used_in(proof.scope))
     if (is_application(proof))
         return Math.max(max_gv_index_used_in(proof.head), max_gv_index_used_in(proof.arg))
+    if (is_suspension(proof))
+        return Math.max(...linked_list_as_array(variables_in_permutation(proof.permutation)).map((v) => v.get_index()))
     return -1
 }
 
@@ -84,10 +90,13 @@ export const is_meta_variable = (ast: any): ast is MetaVariable => ast instanceo
 export const is_indexed_meta_variable = (ast: any): ast is IndexedMetaVariable => ast instanceof IndexedMetaVariable
 export const is_indexed_variable = (ast: any): ast is GeneratedVariable => ast instanceof GeneratedVariable && ast.base_id === ""
 export const is_generated_variable = (ast: any): ast is GeneratedVariable => ast instanceof GeneratedVariable
+export const is_suspension = (ast: any): ast is Suspension => ast instanceof Suspension
 
 export const ast_to_js_string = (ast: Ast): string => {
     const binder_prefix = (b: Binder): string => is_lambda(b) ? 'la' : 'pi'
     const atom_prefix = (a: Atom): string => is_constant(a) ? 'con' : 'ov'
+    const permutation_to_js_string = (p: Permutation): string =>
+        linked_list_as_array(p).map(([a1, a2]) => `[${a1.id} ${a2.id}]`).join(', ')
     if (is_binder(ast))
         return `${binder_prefix(ast)}(${ast_to_js_string(ast.bound)}, ${ast_to_js_string(ast.type)}, ${ast_to_js_string(ast.scope)})`
     if (is_application(ast))
@@ -96,6 +105,8 @@ export const ast_to_js_string = (ast: Ast): string => {
         return `gv(${ast.get_index()})`
     if (is_constant(ast) || is_variable(ast))
         return `${atom_prefix(ast)}('${ast.id}')`
+    if (is_suspension(ast))
+        return `sus(${permutation_to_js_string(ast.permutation)}, ${ast_to_js_string(ast.meta_variable)})${ast_to_js_string(ast)}`
     return 'ERROR'
 }
 
