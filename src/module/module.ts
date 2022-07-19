@@ -216,6 +216,15 @@ export const display_definition_declaration = (d: DefinitionDeclaration) => ({
     definition: ast_to_string(d.definition)
 })
 
+/*
+RETHINK THIS FUNCTION -- should be something related to simultaneous substitution.
+The module's invariant should be that the intersection between the domain of the substitution and the
+free variables of all the entries unioned together is the empty set (the domain and the unioned free variables are
+disjoint).
+
+This can be accomplished by applying the definition as a simultaneous substitution to the definition of the
+relevant variable before placing it in the substitution.
+*/
 export const synthesize_definition_declaration = (module: Module, decl: DefinitionDeclaration): Module | IdentifierRedeclaration | FailedDefinitionCheck | BadSortDeclaration => {
     if (identifier_was_previously_declared(module, decl.variable))
         return identifier_redeclaration(decl)
@@ -324,7 +333,6 @@ export const display_module_report = (r: ModuleReport) => {
         return display_sort_synth_report(r)
     return 'Unknown ModuleReport'
 }
-
 
 export const check_type_check_line = (module: Module, check_line: TypeCheckLine): ModuleReport => {
     const checked = check_and_report_with_defs(

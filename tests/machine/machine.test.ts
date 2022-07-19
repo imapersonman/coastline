@@ -1,8 +1,8 @@
 import { CoastlineControl, display_coastline_control } from "../../src/machine/control"
 import { err, is_coastline_error } from "../../src/machine/error"
-import { apply_substitution_def_2, build_term_def, fib_def } from "../../src/machine/examples"
+import { apply_substitution_def_2, build_term_def, fib_def, NatOVM, TermEVM, TermOVM } from "../../src/machine/examples"
 import { choice, display_coastline_machine, finished_machine, response, run_machine_with_script, start_machine } from '../../sr../../src/machine/machine'
-import { AnyCoastlineObject, CoastlineObject, CoastlineObjectValueMap, cta, display_coastline_object, is_coastline_object, obj, object_constructor } from "../../src/machine/object"
+import { AnyCoastlineObject, CoastlineObject, cta, display_coastline_object, is_coastline_object, obj, object_constructor } from "../../src/machine/object"
 import { is_operator_app, OperatorApplication, OperatorDefinition, operator_app, operator_definition } from "../../src/machine/operator"
 import { is_options_tree, OptionsTree, options_tree } from "../../src/machine/options_tree"
 // import { AnyCoastlineRequest, is_coastline_request, req } from "../../src/machine/request"
@@ -342,7 +342,7 @@ const term_building_list_a_b = [
 ]
 */
 
-const coastline_term_from_json = (json: any): CoastlineObject<'TermAtom' | 'TermVariable' | 'TermList'> => {
+const coastline_term_from_json = (json: any): CoastlineObject<TermOVM, 'TermAtom' | 'TermVariable' | 'TermList'> => {
     if (is_string(json))
         if (json[0] === '.')
             return obj('TermVariable', json.substring(1))
@@ -355,11 +355,11 @@ const coastline_term_from_json = (json: any): CoastlineObject<'TermAtom' | 'Term
 
 const str = object_constructor('String')
 // const trm = object_constructor('Term')
-const atm = object_constructor('TermAtom')
-const va_ = object_constructor('TermVariable')
-const nat = object_constructor('Natural_Number')
+const atm = object_constructor<TermOVM, 'TermAtom'>('TermAtom')
+const va_ = object_constructor<TermOVM, 'TermVariable'>('TermVariable')
+const nat = object_constructor<NatOVM, 'Natural_Number'>('Natural_Number')
 
-const substitution = (...pairs: [CoastlineObject<'TermVariable'>, CoastlineObject<'TermAtom' | 'TermVariable' | 'TermList'>][]): CoastlineObject<'EmptySub' | 'NonEmptySub'> => {
+const substitution = (...pairs: [CoastlineObject<TermOVM, 'TermVariable'>, CoastlineObject<TermOVM, 'TermAtom' | 'TermVariable' | 'TermList'>][]): CoastlineObject<TermOVM, 'EmptySub' | 'NonEmptySub'> => {
     if (is_empty(pairs))
         return obj('EmptySub', [])
     return obj('NonEmptySub', { variable: first(pairs)[0], term: first(pairs)[1], rest: substitution(...rest(pairs)) })

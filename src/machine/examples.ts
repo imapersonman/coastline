@@ -1,25 +1,40 @@
-import { isEqual, union, unionWith } from "lodash"
-import { declare, defined, first, is_string, last, rest, zip } from "../utilities"
+import { isEqual, unionWith } from "lodash"
+import { declare, defined, first, is_string, rest, zip } from "../utilities"
 import { CoastlineControl } from "./control"
-import { err } from "./error"
-import { AnyCoastlineObject, bin_tree_type, CoastlineObject, CoastlineObjectValueMap, cta, ctas, display_coastline_object, ECCBinder, ECCTerm, ecc_term_types, obj, object_constructor, Substitution, Term } from "./object"
+import { err, ErrorValueMap } from "./error"
+import { AnyCoastlineObject, CoastlineObject, cta, ctas, ecc_term_types, obj, ObjectValueMap, object_constructor, Substitution } from "./object"
 import { OperatorDefinition, operator_app, operator_definition } from "./operator"
-import { options_tree } from "./options_tree"
+import { OptionsTree, options_tree } from "./options_tree"
 import { req2 } from "./request"
-// import { req } from "./request"
 import { expect_type, expect_types } from "./utilities"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////// FIBONACCI /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const expect_natural = expect_type('Natural_Number')
+export type NatOVM = {
+    Natural_Number: number
+    EmptyBinTree: { num: CoastlineObject<NatOVM, 'Natural_Number'> }
+    NonEmptyBinTree: { num: CoastlineObject<NatOVM, 'Natural_Number'>, left: CoastlineObject<NatOVM, BinaryTree>, right: CoastlineObject<NatOVM, BinaryTree> }
+    NaturalList: CoastlineObject<NatOVM, 'Natural_Number'>[]
+}
+
+export type NatEVM = {
+    'InputNotEqualTo': number
+    'InputNotGreaterThanOrEqualTo': number
+    'WithMessage': string
+}
+
+const expect_natural = expect_type<NatOVM, NatEVM, 'Natural_Number'>('Natural_Number')
 const nat = object_constructor('Natural_Number')
 
-export const fib_def = operator_definition('fib', ['n'], (inputs) =>
+export const fib_def = operator_definition<NatOVM, NatEVM>('fib', ['n'], (inputs) =>
     expect_natural(inputs[0], (n) =>
         options_tree([
             ['zero'  , () => n.value !== 0 ? err('InputNotEqualTo', 0) : obj('Natural_Number', 0)],
-            ['one'   , () => n.value !== 1 ? err('InputNotEqualTo', 1) : obj('Natural_Number', 1)],
+            ['one'   , () => n.value !== 1
+                ? err('InputNotEqualTo', 1)
+                : obj('Natural_Number', 1)],
+            // ['cool'  , () => n.value !== 1 ? err('InputNotEqualTo', 1) : obj('Natural_Number', 1)],
             ['ge_two', () => n.value   < 2 ? err('InputNotGreaterThanOrEqualTo', 2)
                 : operator_app(plus_def, [
                     operator_app(fib_def, [obj('Natural_Number', n.value - 2)]),
@@ -30,7 +45,7 @@ export const fib_def = operator_definition('fib', ['n'], (inputs) =>
     )
 )
 
-export const plus_def = operator_definition('plus', ['n1', 'n2'], (inputs) =>
+export const plus_def = operator_definition<NatOVM, NatEVM>('plus', ['n1', 'n2'], (inputs) =>
     expect_natural(inputs[0], (n1) =>
         expect_natural(inputs[1], (n2) =>
             obj('Natural_Number', n1.value + n2.value)
@@ -38,21 +53,55 @@ export const plus_def = operator_definition('plus', ['n1', 'n2'], (inputs) =>
     )
 )
 
-export const max_def = operator_definition('max', ['n1', 'n2'], (inputs) => expect_natural(inputs[0], (n1) => expect_natural(inputs[1], (n2) => n1.value >= n2.value ? n1 : n2)))
+export const max_def = operator_definition<NatOVM, NatEVM>('max', ['n1', 'n2'], (inputs) => expect_natural(inputs[0], (n1) => expect_natural(inputs[1], (n2) => n1.value >= n2.value ? n1 : n2)))
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////// TERMS_EQUAL ////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const expect_term     = expect_types('TermAtom', 'TermVariable', 'TermList')
-const expect_atom     = expect_type('TermAtom')
-const expect_variable = expect_type('TermVariable')
-const expect_boolean  = expect_type('Boolean')
-const expect_list     = expect_type('TermList')
+export type Term = 'TermAtom' | 'TermVariable' | 'TermList'
+
+export interface TermOVM extends ObjectValueMap {
+    'TermAtom': string
+    'TermVariable': string
+    'TermList': CoastlineObject<TermOVM, Term>[]
+    'Boolean': boolean
+    'EmptySub': []
+    'NonEmptySub': {
+        variable: CoastlineObject<TermOVM, 'TermVariable'>,
+        term: CoastlineObject<TermOVM, 'TermAtom' | 'TermVariable' | 'TermList'>,
+        rest: CoastlineObject<TermOVM, 'EmptySub' | 'NonEmptySub'>
+    }
+    'UnificationEquation': { left: CoastlineObject<TermOVM, Term>, right: CoastlineObject<TermOVM, Term> }
+    'UnificationProblem': CoastlineObject<TermOVM, 'UnificationEquation'>[]
+}
+
+export type TermEVM = {
+    'TermsAreNotEqual': { term1: CoastlineObject<TermOVM, Term>, term2: CoastlineObject<TermOVM, Term> },
+    'TermsAreEqual': { term1: CoastlineObject<TermOVM, Term>, term2: CoastlineObject<TermOVM, Term> }
+    'OneListIsNotEmpty': { list1: CoastlineObject<TermOVM, 'TermList'>, list2: CoastlineObject<TermOVM, 'TermList'> }
+    'OneListIsEmpty': { list1: CoastlineObject<TermOVM, 'TermList'>, list2: CoastlineObject<TermOVM, 'TermList'> }
+    'SubstitutionVariablesAppearInTerm': undefined
+    'ListIsNotEmpty': CoastlineObject<TermOVM, 'TermList'>
+    'ListIsEmpty': CoastlineObject<TermOVM, 'TermList'>
+    'WithMessage': string
+    'CannotSwapError': undefined
+    'VariableOccursInTerm': { variable: CoastlineObject<TermOVM, 'TermVariable'>, term: CoastlineObject<TermOVM, Term> }
+    'VariableDoesNotOccurInTerm': { variable: CoastlineObject<TermOVM, 'TermVariable'>, term: CoastlineObject<TermOVM, Term> }
+    'ListsHaveDifferentLengths': { list1: CoastlineObject<TermOVM, 'TermList'>, list2: CoastlineObject<TermOVM, 'TermList'> }
+    'UnificationProblemIsNotEmpty': undefined
+    'UnificationProblemIsEmpty': undefined
+}
+
+const expect_term     = expect_types<TermOVM, TermEVM, Term>('TermAtom', 'TermVariable', 'TermList')
+const expect_atom     = expect_type<TermOVM, TermEVM, 'TermAtom'>('TermAtom')
+const expect_variable = expect_type<TermOVM, TermEVM, 'TermVariable'>('TermVariable')
+const expect_boolean  = expect_type<TermOVM, TermEVM, 'Boolean'>('Boolean')
+const expect_list     = expect_type<TermOVM, TermEVM, 'TermList'>('TermList')
 
 // (Term, Term) => Boolean
-export const terms_equal_def = operator_definition('terms_equal', ['left', 'right'], (inputs) =>
+export const terms_equal_def = operator_definition<TermOVM, TermEVM>('terms_equal', ['left', 'right'], (inputs) =>
     expect_term(inputs[0], (t1) => expect_term(inputs[1], (t2) =>
-        options_tree([
+        options_tree<TermOVM, TermEVM>([
             ['atoms',           () => operator_app(atoms_equal_def,     [t1, t2])],
             ['variables',       () => operator_app(variables_equal_def, [t1, t2])],
             ['lists',           () => operator_app(lists_equal_def,     [t1, t2])],
@@ -62,7 +111,7 @@ export const terms_equal_def = operator_definition('terms_equal', ['left', 'righ
 )
 
 // (TermAtom, TermAtom) => Boolean
-export const atoms_equal_def = operator_definition('atoms_equal', ['left', 'right'], (inputs) =>
+export const atoms_equal_def = operator_definition<TermOVM, TermEVM>('atoms_equal', ['left', 'right'], (inputs) =>
     expect_atom(inputs[0], (a1) => expect_atom(inputs[1], (a2) =>
         options_tree([
             ['atoms_are_equal',     () => a1.value !== a2.value ? err('TermsAreNotEqual', { term1: a1, term2: a2 }) : obj('Boolean', true)],
@@ -72,7 +121,7 @@ export const atoms_equal_def = operator_definition('atoms_equal', ['left', 'righ
 )
 
 // (TermVariable, TermVariable) => Boolean
-export const variables_equal_def = operator_definition('variables_equal', ['left', 'right'], (inputs) =>
+export const variables_equal_def = operator_definition<TermOVM, TermEVM>('variables_equal', ['left', 'right'], (inputs) =>
     expect_variable(inputs[0], (v1) => expect_variable(inputs[1], (v2) =>
         options_tree([
             ['atoms_are_equal',     () => v1.value !== v2.value ? err('TermsAreNotEqual',  { term1: v1, term2: v2 }) : obj('Boolean', true)],
@@ -82,14 +131,14 @@ export const variables_equal_def = operator_definition('variables_equal', ['left
 )
 
 // (Boolean, Boolean) => Boolean
-export const and_def = operator_definition('and', ['b1', 'b2'], (inputs: AnyCoastlineObject[]) =>
+export const and_def = operator_definition('and', ['b1', 'b2'], (inputs: AnyCoastlineObject<TermOVM>[]) =>
     expect_boolean(inputs[0], (b1) => expect_boolean(inputs[1], (b2) =>
         obj('Boolean', b1.value && b2.value)
     ))
 )
 
 // (TermList, TermList) => Boolean
-export const lists_equal_def = operator_definition('lists_equal', ['left', 'right'], (inputs: AnyCoastlineObject[]) =>
+export const lists_equal_def = operator_definition<TermOVM, TermEVM>('lists_equal', ['left', 'right'], (inputs: AnyCoastlineObject<TermOVM>[]) =>
     expect_list(inputs[0], (l1) => expect_list(inputs[1], (l2) =>
         options_tree([
             ['lists_are_empty',     () => l1.value.length !== 0 || l2.value.length !== 0 ? err('OneListIsNotEmpty', { list1: l1, list2: l2 }) : obj('Boolean', true)],
@@ -106,11 +155,14 @@ export const lists_equal_def = operator_definition('lists_equal', ['left', 'righ
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////// SUBSTITUTIONS ////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const expect_sub           = expect_types('EmptySub', 'NonEmptySub')
-const expect_empty_sub     = expect_type('EmptySub')
-const expect_non_empty_sub = expect_type('NonEmptySub')
+export type Subst = 'EmptySub' | 'NonEmptySub'
+export const subst_types = ['EmptySub', 'NonEmptySub']
 
-export const substitution_variables_appear_in_term = (s: CoastlineObject<'EmptySub' | 'NonEmptySub'>, t: CoastlineObject<Term>): boolean => {
+const expect_sub           = expect_types<TermOVM, TermEVM, Subst>('EmptySub', 'NonEmptySub')
+const expect_empty_sub     = expect_type<TermOVM, TermEVM, 'EmptySub'>('EmptySub')
+const expect_non_empty_sub = expect_type<TermOVM, TermEVM, 'NonEmptySub'>('NonEmptySub')
+
+export const substitution_variables_appear_in_term = (s: CoastlineObject<TermOVM, Subst>, t: CoastlineObject<TermOVM, Term>): boolean => {
     if (cta('EmptySub', s))
         return false
     if (cta('NonEmptySub', s))
@@ -119,7 +171,7 @@ export const substitution_variables_appear_in_term = (s: CoastlineObject<'EmptyS
 }
 
 // (Substitution, Term) => Term
-export const apply_substitution_def_2 = operator_definition('apply_substitution', ['substitution', 'term'], (inputs) =>
+export const apply_substitution_def_2 = operator_definition<TermOVM, TermEVM>('apply_substitution', ['substitution', 'term'], (inputs) =>
     expect_sub(inputs[0], (s) => expect_term(inputs[1], (t) =>
         options_tree([
             ['substitution_variables_do_not_appear_in_term', () => substitution_variables_appear_in_term(s, t) ? err('SubstitutionVariablesAppearInTerm', undefined) : t],
@@ -131,7 +183,7 @@ export const apply_substitution_def_2 = operator_definition('apply_substitution'
 )
 
 // (Substitution, Variable) => Term
-export const apply_substitution_to_variable_def = operator_definition('apply_substitution_to_variable', ['substitution', 'variable'], (inputs) =>
+export const apply_substitution_to_variable_def = operator_definition<TermOVM, TermEVM>('apply_substitution_to_variable', ['substitution', 'variable'], (inputs) =>
     expect_sub(inputs[0], (s) => expect_variable(inputs[1], (v) =>
         options_tree([
             ['empty_sub', () => expect_empty_sub(s, () => v)],
@@ -150,7 +202,7 @@ export const apply_substitution_to_variable_def = operator_definition('apply_sub
 )
 
 // (Substitution, TermList) => TermList
-export const apply_substitution_to_list_def_2 = operator_definition('apply_substitution_to_list_def_2', ['substitution', 'list'], (inputs) =>
+export const apply_substitution_to_list_def_2 = operator_definition<TermOVM, TermEVM>('apply_substitution_to_list_def_2', ['substitution', 'list'], (inputs) =>
     expect_sub(inputs[0], (s) => expect_list(inputs[1], (l) =>
         options_tree([
             ['empty', () => l.value.length !== 0 ? err('ListIsNotEmpty', l) : l],
@@ -163,54 +215,8 @@ export const apply_substitution_to_list_def_2 = operator_definition('apply_subst
     ))
 )
 
-// // (Substitution, Term) => Term
-// export const apply_substitution_def = operator_definition('apply_substitution', (inputs) =>
-//     expect_sub(inputs[0], (s) => expect_term(inputs[1], (t) =>
-//         options_tree([
-//             ['empty_sub',     () => expect_empty_sub    (s, () => t)],
-//             ['non_empty_sub', () => expect_non_empty_sub(s, () => operator_app(apply_non_empty_sub_def, [s, t]))]
-//         ])
-//     ))
-// )
-
-// // (NonEmptySub, Term) => Term
-// export const apply_non_empty_sub_def = operator_definition('apply_non_empty_substitution', (inputs) =>
-//     expect_non_empty_sub(inputs[0], (s) => expect_term(inputs[1], (t) =>
-//         options_tree([
-//             ['atom',     () => expect_atom(t, () => t)],
-//             ['variable', () => operator_app(sub_single_in_variable_def, [s.value.variable, s.value.term, t])],
-//             ['list',     () => operator_app(apply_substitution_to_list_def, [s, t])]
-//         ])
-//     ))
-// )
-
-// // (TermVariable, Term, Variable) => Term
-// export const sub_single_in_variable_def = operator_definition('sub_single_in_atom', (inputs) =>
-//     expect_variable(inputs[0], (from_v) => expect_term(inputs[1], (to_t) => expect_variable(inputs[2], (in_v) =>
-//         options_tree([
-//             ['replace_variable',        () => from_v.value !== in_v.value ? err('TermsAreNotEqual', { term1: from_v, term2: in_v }) : to_t],
-//             ['do_not_replace_variable', () => from_v.value === in_v.value ? err('TermsAreEqual',    { term1: from_v, term2: in_v }) : in_v]
-//         ])
-//     )))
-// )
-
-// // (Substitution, TermList) => TermList
-// export const apply_substitution_to_list_def = operator_definition('apply_substitution_to_list_def', (inputs) =>
-//     expect_sub(inputs[0], (s) => expect_list(inputs[1], (l) =>
-//         options_tree([
-//             ['list_is_empty',     () => l.value.length !== 0 ? err('ListIsNotEmpty', l) : l],
-//             ['list_is_not_empty', () => l.value.length === 0 ? err('ListIsEmpty', l)
-//                 : operator_app(cons_def, [
-//                     operator_app(apply_substitution_def, [s, first(l.value)]),
-//                     obj('TermList', rest(l.value))
-//                 ])
-//             ]
-//         ])
-//     ))
-// )
-
 // (Term, TermList) => TermList
-export const cons_def = operator_definition('cons', ['head', 'tail'], (inputs) =>
+export const cons_def = operator_definition<TermOVM, TermEVM>('cons', ['head', 'tail'], (inputs) =>
     expect_term(inputs[0], (t) => expect_list(inputs[1], (l) =>
         obj('TermList', [t, ...l.value])
     ))
@@ -219,7 +225,7 @@ export const cons_def = operator_definition('cons', ['head', 'tail'], (inputs) =
 // (s1 o s2)(f) = s1(s2(f)),
 // so we should append s1 to the end of s2, applying s1 to every term in s2.
 // if there are conflicting variables, the one seen in 
-export const compose_substitutions_def = operator_definition('compose_substitutions', ['s1', 's2'], (inputs) =>
+export const compose_substitutions_def = operator_definition<TermOVM, TermEVM>('compose_substitutions', ['s1', 's2'], (inputs) =>
     expect_sub(inputs[0], (s1) => expect_sub(inputs[1], (s2) =>
         options_tree([
             ['second_sub_is_empty',     () => expect_empty_sub    (s2, ()     => s1)],
@@ -246,7 +252,7 @@ export const compose_substitutions_def = operator_definition('compose_substituti
 // term.  No further substitutions are made down the tree, as this method
 // will mainly be used to rebuild substitutions after recursive calls.
 // (Variable, Term, Substitution) => NonEmptySub
-export const cons_sub_def = operator_definition('cons_substitution', ['new_variable', 'new_term', 'old_substitution'], (inputs) =>
+export const cons_sub_def = operator_definition<TermOVM, TermEVM>('cons_substitution', ['new_variable', 'new_term', 'old_substitution'], (inputs) =>
     expect_variable(inputs[0], (v) => expect_term(inputs[1], (t) => expect_sub(inputs[2], (s) =>
         obj('NonEmptySub', { variable: v, term: t, rest: s })
     )))
@@ -279,7 +285,7 @@ export const build_variable_def = operator_definition('build_variable', ['id'], 
     expect_string(inputs[0], (id) => obj('TermVariable', id.value))
 )
 
-export const build_list_def = operator_definition('build_list', [], () =>
+export const build_list_def = operator_definition<TermOVM, TermEVM>('build_list', [], () =>
     options_tree([
         ['empty',     () => obj('TermList', [])],
         ['non_empty', () => operator_app(cons_def, [
@@ -292,40 +298,40 @@ export const build_list_def = operator_definition('build_list', [], () =>
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////// UNIFICATION ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const expect_unification_problem = expect_type('UnificationProblem')
-const expect_unification_equation = expect_type('UnificationEquation')
+const expect_unification_problem = expect_type<TermOVM, TermEVM, 'UnificationProblem'>('UnificationProblem')
+const expect_unification_equation = expect_type<TermOVM, TermEVM, 'UnificationEquation'>('UnificationEquation')
 
 // (Term, Term) => Substitution
-export const start_unification_def = operator_definition('start_unification', ['left', 'right'], (inputs) =>
+export const start_unification_def = operator_definition<TermOVM, TermEVM>('start_unification', ['left', 'right'], (inputs) =>
     expect_term(inputs[0], (left) => expect_term(inputs[1], (right) =>
-        operator_app(unify_def, [obj('EmptySub', []), obj('UnificationProblem', [obj('UnificationEquation', ({ left, right }))])])
+        operator_app(unify_def, [obj('EmptySub', []), obj('UnificationProblem', [obj<TermOVM, 'UnificationEquation'>('UnificationEquation', ({ left, right }))])])
     ))
 )
 
-const js_terms_equal = (l: CoastlineObject<Term>, r: CoastlineObject<Term>): boolean => {
+const js_terms_equal = (l: CoastlineObject<TermOVM, Term>, r: CoastlineObject<TermOVM, Term>): boolean => {
     if (cta('TermList', l) && cta('TermList', r))
         return l.value.length === r.value.length && zip(l.value, r.value).every(([lt, rt]) => js_terms_equal(lt, rt))
     return l.type === r.type && l.value === r.value
 }
 
-const js_occurs_check = (lv: CoastlineObject<'TermVariable'>, r: CoastlineObject<Term>): boolean => {
+const js_occurs_check = (lv: CoastlineObject<TermOVM, 'TermVariable'>, r: CoastlineObject<TermOVM, Term>): boolean => {
     return (cta('TermVariable', r) && lv.value === r.value)
         || (cta('TermList', r) && r.value.some((t) => js_occurs_check(lv, t)))
 }
 
-const js_conflicts = (l: CoastlineObject<Term>, r: CoastlineObject<Term>): boolean =>
+const js_conflicts = (l: CoastlineObject<TermOVM, Term>, r: CoastlineObject<TermOVM, Term>): boolean =>
     (cta('TermAtom', l) && cta('TermAtom', r) && l.value !== r.value)
     || (cta('TermList', l) && cta('TermList', r) && l.value.length !== r.value.length)
 
 // (Substitution, UnificationProblem, UnificationEquation) => Substitution | UnificationError
-export const unify_def = operator_definition('unify', ['substitution', 'problem'], (inputs) =>
+export const unify_def = operator_definition<TermOVM, TermEVM>('unify', ['substitution', 'problem'], (inputs) =>
     expect_sub(inputs[0], (sub) => expect_unification_problem(inputs[1], (problem) =>
         problem.value.length === 0 ? sub
         : declare(first(problem.value), ({ value: { left: l, right: r } }) => options_tree([
             ['delete', () => !js_terms_equal(l, r) ? err('TermsAreNotEqual', { term1: l, term2: r }) : operator_app(unify_def, [sub, obj('UnificationProblem', rest(problem.value))])],
             ['decompose', () => expect_list(l, (ll) => expect_list(r, (rl) => skipped_decompose(sub, obj('UnificationProblem', rest(problem.value)), ll, rl)))],
             ['conflict', () => !js_conflicts(l, r) ? err('WithMessage', 'Terms do not conflict!') : obj('UnificationError', undefined)],
-            ['swap', () => !cta('TermVariable', l) && !cta('TermVariable', r) ? err('CannotSwapError', undefined) : operator_app(unify_def, [sub, obj('UnificationProblem', [obj('UnificationEquation', { left: r, right: l }), ...rest(problem.value)])])],
+            ['swap', () => !cta('TermVariable', l) && !cta('TermVariable', r) ? err('CannotSwapError', undefined) : operator_app(unify_def, [sub, obj('UnificationProblem', [obj<TermOVM, 'UnificationEquation'>('UnificationEquation', { left: r, right: l }), ...rest(problem.value)])])],
             ['eliminate', () => expect_variable(l, (lv) => js_occurs_check(lv, r) ? err('VariableOccursInTerm', { variable: lv, term: r }) : skipped_eliminate(sub, obj('UnificationProblem', rest(problem.value)), lv, r))],
             ['check', () => expect_variable(l, (lv) =>
                 !js_occurs_check(lv, r)
@@ -336,14 +342,14 @@ export const unify_def = operator_definition('unify', ['substitution', 'problem'
     ))
 )
 
-const skipping_check_unify_finished = (sub: CoastlineObject<Substitution>, problem: CoastlineObject<'UnificationProblem'>): CoastlineControl => {
+const skipping_check_unify_finished = (sub: CoastlineObject<TermOVM, Substitution>, problem: CoastlineObject<TermOVM, 'UnificationProblem'>): CoastlineControl<TermOVM, TermEVM> => {
     if (problem.value.length === 0)
         return sub
     return operator_app(unify_def, [sub, obj('UnificationProblem', rest(problem.value)), obj('UnificationEquation', ({ left: first(problem.value).value.left, right: first(problem.value).value.right }))])
 }
 
 // (Substitution, UnificationProblem) => Substitution
-export const check_unify_finished_def = operator_definition('check_unify_finished', ['substitution', 'problem'], (inputs) =>
+export const check_unify_finished_def = operator_definition<TermOVM, TermEVM>('check_unify_finished', ['substitution', 'problem'], (inputs) =>
     expect_sub(inputs[0], (sub) => expect_unification_problem(inputs[1], (ues) =>
         ues.value.length === 0 ? sub
         : operator_app(unify_def, [
@@ -354,12 +360,12 @@ export const check_unify_finished_def = operator_definition('check_unify_finishe
     ))
 )
 
-const skipped_decompose = (sub: CoastlineObject<Substitution>, problem: CoastlineObject<'UnificationProblem'>, l: CoastlineObject<'TermList'>, r: CoastlineObject<'TermList'>): CoastlineControl => {
+const skipped_decompose = (sub: CoastlineObject<TermOVM, Substitution>, problem: CoastlineObject<TermOVM, 'UnificationProblem'>, l: CoastlineObject<TermOVM, 'TermList'>, r: CoastlineObject<TermOVM, 'TermList'>): CoastlineControl<TermOVM, TermEVM> => {
     if (l.value.length !== r.value.length)
         return err('ListsHaveDifferentLengths', { list1: l, list2: r })
     const new_ues_array = zip(l.value, r.value).map(([lt, rt]) => (obj('UnificationEquation', { left: lt, right: rt })))
     const mod_ues = obj('UnificationProblem', [...new_ues_array, ...problem.value])
-    return operator_app(unify_def, [sub, mod_ues])
+    return operator_app<TermOVM, TermEVM>(unify_def, [sub, mod_ues])
 }
 
 // // (Substitution, UnificationProblem, TermList, TermList) => Substitution
@@ -373,7 +379,7 @@ const skipped_decompose = (sub: CoastlineObject<Substitution>, problem: Coastlin
 //     }))))
 // )
 
-const skipped_eliminate = (sub: CoastlineObject<Substitution>, problem: CoastlineObject<'UnificationProblem'>, variable: CoastlineObject<'TermVariable'>, term: CoastlineObject<Term>): CoastlineControl =>
+const skipped_eliminate = (sub: CoastlineObject<TermOVM, Substitution>, problem: CoastlineObject<TermOVM, 'UnificationProblem'>, variable: CoastlineObject<TermOVM, 'TermVariable'>, term: CoastlineObject<TermOVM, Term>): CoastlineControl<TermOVM, TermEVM> =>
     operator_app(substitute_in_unification_problem_then_continue_unifying_def, [
         operator_app(add_to_substitution_def, [sub, variable, term]),
         problem
@@ -381,7 +387,7 @@ const skipped_eliminate = (sub: CoastlineObject<Substitution>, problem: Coastlin
 
 
 // (Substitution, UnificationProblem, Variable, Term) => Substitution
-export const eliminate_def = operator_definition('eliminate', ['substitution', 'problem', 'variable', 'term'], (inputs) =>
+export const eliminate_def = operator_definition<TermOVM, TermEVM>('eliminate', ['substitution', 'problem', 'variable', 'term'], (inputs) =>
     expect_sub(inputs[0], (sub) => expect_unification_problem(inputs[1], (ues) => expect_variable(inputs[2], (v) => expect_term(inputs[3], (t) =>
         // This function's necessity is a good argument for adding declaration blocks as a kind of control.
         operator_app(substitute_in_unification_problem_then_continue_unifying_def, [
@@ -392,7 +398,7 @@ export const eliminate_def = operator_definition('eliminate', ['substitution', '
 )
 
 // (Substitution, UnificationProblem) => Substitution
-export const substitute_in_unification_problem_then_continue_unifying_def = operator_definition('substitute_in_unification_problem_then_continue_unifying', ['substitution', 'problem'], (inputs) =>
+export const substitute_in_unification_problem_then_continue_unifying_def = operator_definition<TermOVM, TermEVM>('substitute_in_unification_problem_then_continue_unifying', ['substitution', 'problem'], (inputs) =>
     expect_sub(inputs[0], (sub) => expect_unification_problem(inputs[1], (ues) =>
         operator_app(unify_def, [
             sub,
@@ -402,7 +408,7 @@ export const substitute_in_unification_problem_then_continue_unifying_def = oper
 )
 
 // (Substitution, UnificationProblem) => UnificationProblem
-export const substitute_in_unification_problem_def = operator_definition('substitute_in_unification_problem', ['substitution', 'problem'], (inputs) =>
+export const substitute_in_unification_problem_def = operator_definition<TermOVM, TermEVM>('substitute_in_unification_problem', ['substitution', 'problem'], (inputs) =>
     expect_sub(inputs[0], (sub) => expect_unification_problem(inputs[1], (ues) =>
         options_tree([
             ['unification_problem_is_empty', () => ues.value.length !== 0 ? err('UnificationProblemIsNotEmpty', undefined) : ues],
@@ -420,7 +426,7 @@ export const substitute_in_unification_problem_def = operator_definition('substi
 )
 
 // (Substitution, UnificationEquation) => UnificationEquation
-export const substitute_in_unification_equation_def = operator_definition('substitute_in_unification_equation_def', ['substitution', 'problem'], (inputs) =>
+export const substitute_in_unification_equation_def = operator_definition<TermOVM, TermEVM>('substitute_in_unification_equation_def', ['substitution', 'problem'], (inputs) =>
     expect_sub(inputs[0], (sub) => expect_unification_equation(inputs[1], (ue) =>
         operator_app(make_unification_equation_def, [
             operator_app(apply_substitution_def_2, [sub, ue.value.left]),
@@ -429,27 +435,27 @@ export const substitute_in_unification_equation_def = operator_definition('subst
     ))
 )
 
-export const make_unification_equation_def = operator_definition('make_unification_equation', ['left', 'right'], (inputs) =>
+export const make_unification_equation_def = operator_definition<TermOVM, TermEVM>('make_unification_equation', ['left', 'right'], (inputs) =>
     expect_term(inputs[0], (l) => expect_term(inputs[1], (r) =>
         obj('UnificationEquation', { left: l, right: r })
     ))
 )
 
 // (UnificationEquation, UnificationProblem) => 
-export const cons_unification_problem_def = operator_definition('cons_unification_problem_def', ['first_equation', 'rest_of_problem'], (inputs) =>
+export const cons_unification_problem_def = operator_definition<TermOVM, TermEVM>('cons_unification_problem_def', ['first_equation', 'rest_of_problem'], (inputs) =>
     expect_unification_equation(inputs[0], (ue) => expect_unification_problem(inputs[1], (ues) =>
         obj('UnificationProblem', [ue, ...ues.value])
     ))
 )
 
 // (Substitution, Variable, Term) => Substitution
-export const add_to_substitution_def = operator_definition('add_to_substitution', ['substitution', 'variable', 'term'], (inputs) =>
+export const add_to_substitution_def = operator_definition<TermOVM, TermEVM>('add_to_substitution', ['substitution', 'variable', 'term'], (inputs) =>
     expect_sub(inputs[0], (sub) => expect_variable(inputs[1], (v) => expect_term(inputs[2], (t) =>
         options_tree([
-            ['at_end_of_substitution', () => expect_empty_sub(sub, () => obj('NonEmptySub', { variable: v, term: t, rest: obj('EmptySub', []) }))],
+            ['at_end_of_substitution', () => expect_empty_sub(sub, () => obj('NonEmptySub', { variable: v, term: t, rest: obj<TermOVM, 'EmptySub'>('EmptySub', []) }))],
             ['not_at_end_of_substitution', () => expect_non_empty_sub(sub, (nes) => operator_app(cons_sub_def, [
                 nes.value.variable,
-                operator_app(apply_substitution_def_2, [obj('NonEmptySub', { variable: v, term: t, rest: obj('EmptySub', []) }), nes.value.term]),
+                operator_app(apply_substitution_def_2, [obj('NonEmptySub', { variable: v, term: t, rest: obj<TermOVM, 'EmptySub'>('EmptySub', []) }), nes.value.term]),
                 operator_app(add_to_substitution_def, [nes.value.rest, v, t])
             ]))]
         ])
@@ -459,14 +465,14 @@ export const add_to_substitution_def = operator_definition('add_to_substitution'
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////// PLAYING WITH TERMS ////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-export const succ_options = () =>
+export const succ_options = (): OptionsTree<NatOVM, NatEVM> =>
     options_tree([
-        ['error', () => err('CannotSwapError', undefined)],
+        ['error', () => err('WithMessage', 'random error')],
         ['succ', () => operator_app(succ_def, [succ_options()])],
         ['zero', () => obj('Natural_Number', 0)]
     ])
 
-export const succ_def = operator_definition('succ', ['n'], (inputs) =>
+export const succ_def = operator_definition<NatOVM, NatEVM>('succ', ['n'], (inputs) =>
     expect_natural(inputs[0], (n) =>
         obj('Natural_Number', n.value + 1)
     )
@@ -475,10 +481,13 @@ export const succ_def = operator_definition('succ', ['n'], (inputs) =>
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////// BINARY TREES ///////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-export const expect_binary_tree = expect_types('EmptyBinTree', 'NonEmptyBinTree')
 
-export const binary_tree_options = () =>
-    options_tree([
+export type BinaryTree = 'EmptyBinTree' | 'NonEmptyBinTree'
+
+export const expect_binary_tree = expect_types<NatOVM, NatEVM, 'EmptyBinTree' | 'NonEmptyBinTree'>('EmptyBinTree', 'NonEmptyBinTree')
+
+export const binary_tree_options = (): CoastlineControl<NatOVM, NatEVM> =>
+    options_tree<NatOVM, NatEVM>([
         ['error', () => err('WithMessage', 'User did an error!')],
         ['empty_binary_tree', () => operator_app(empty_binary_tree_def, [
             req2('Natural_Number')
@@ -490,13 +499,13 @@ export const binary_tree_options = () =>
         ])]
     ])
 
-export const empty_binary_tree_def = operator_definition('empty_binary_tree_def', ['value'], (inputs) =>
+export const empty_binary_tree_def = operator_definition<NatOVM, NatEVM>('empty_binary_tree_def', ['value'], (inputs) =>
     expect_natural(inputs[0], (num) =>
         obj('EmptyBinTree', { num })
     )
 )
 
-export const non_empty_binary_tree_def = operator_definition('non_empty_binary_tree_def', ['value', 'left', 'right'], (inputs) =>
+export const non_empty_binary_tree_def = operator_definition<NatOVM, NatEVM>('non_empty_binary_tree_def', ['value', 'left', 'right'], (inputs) =>
     expect_natural(inputs[0], (num) => expect_binary_tree(inputs[1], (left) => expect_binary_tree(inputs[2], (right) =>
         obj('NonEmptyBinTree', { num, left, right })
     )))
@@ -505,10 +514,10 @@ export const non_empty_binary_tree_def = operator_definition('non_empty_binary_t
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////// MERGE SORT ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-export const expect_natural_list = expect_type('NaturalList')
+export const expect_natural_list = expect_type<NatOVM, NatEVM, 'NaturalList'>('NaturalList')
 
 // (NaturalList) => NaturalList
-export const merge_sort_def = operator_definition('merge_sort', ['list'], (inputs) =>
+export const merge_sort_def = operator_definition<NatOVM, NatEVM>('merge_sort', ['list'], (inputs) =>
     expect_natural_list(inputs[0], (list) =>
         options_tree([
             ['list_is_trivially_sorted', () => list.value.length > 1 ? err('WithMessage', 'A list is only trivially sorted if its length is <= 1!') : list],
@@ -520,20 +529,20 @@ export const merge_sort_def = operator_definition('merge_sort', ['list'], (input
     )
 )
 
-const skipped_list_before_index = (list: CoastlineObject<'NaturalList'>, index: CoastlineObject<'Natural_Number'>): CoastlineControl => {
+const skipped_list_before_index = (list: CoastlineObject<NatOVM, 'NaturalList'>, index: CoastlineObject<NatOVM, 'Natural_Number'>): CoastlineControl<NatOVM, NatEVM> => {
     if (index.value < 0 || index.value >= list.value.length)
         return err('WithMessage', `Index ${index} is out of bounds 0 <= i < ${list.value.length}!`)
     return obj('NaturalList', list.value.slice(0, index.value))
 }
 
-const skipped_list_after_index = (list: CoastlineObject<'NaturalList'>, index: CoastlineObject<'Natural_Number'>): CoastlineControl => {
+const skipped_list_after_index = (list: CoastlineObject<NatOVM, 'NaturalList'>, index: CoastlineObject<NatOVM, 'Natural_Number'>): CoastlineControl<NatOVM, NatEVM> => {
     if (index.value < 0 || index.value >= list.value.length)
         return err('WithMessage', `Index ${index} is out of bounds 0 <= i < ${list.value.length}!`)
     return obj('NaturalList', list.value.slice(index.value, list.value.length))
 }
 
 // (NaturalList, NaturalList) => NaturalList
-export const merge_def = operator_definition('merge', ['left_list', 'right_list'], (inputs) =>
+export const merge_def = operator_definition<NatOVM, NatEVM>('merge', ['left_list', 'right_list'], (inputs) =>
     expect_natural_list(inputs[0], (left) => expect_natural_list(inputs[1], (right) =>
         options_tree([
             ['add_rest_of_left_list', () => right.value.length !== 0 ? err('WithMessage', 'You can only add the rest of the left list if the left list is empty!') : left],
@@ -562,7 +571,7 @@ export const merge_def = operator_definition('merge', ['left_list', 'right_list'
     ))
 )
 
-export const cons_natural_list_def = operator_definition('cons_natural_list', ['head', 'tail'], (inputs) =>
+export const cons_natural_list_def = operator_definition<NatOVM, NatEVM>('cons_natural_list', ['head', 'tail'], (inputs) =>
     expect_natural(inputs[0], (head) => expect_natural_list(inputs[1], (tail) =>
         obj('NaturalList', [head, ...tail.value])
     ))
@@ -571,14 +580,29 @@ export const cons_natural_list_def = operator_definition('cons_natural_list', ['
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////// ARITHMETIC EXPRESSION EVALUATION /////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-export const expect_arithmetic_expression = expect_types('Integer', 'NegativeExpression', 'PlusExpression', 'MinusExpression', 'TimesExpression')
-export const expect_integer = expect_type('Integer')
-export const expect_negative_expression = expect_type('NegativeExpression')
-export const expect_plus_expression = expect_type('PlusExpression')
-export const expect_minus_expression = expect_type('MinusExpression')
-export const expect_times_expression = expect_type('TimesExpression')
 
-export const evaluate_arithmetic_expression_def = operator_definition('evaluate_arithmetic_expression', ['expression'], (inputs) =>
+export type ArithmeticExpression = 'Integer' | 'NegativeExpression' | 'PlusExpression' | 'MinusExpression' | 'TimesExpression'
+
+export type ArithmeticOVM = {
+    Integer: number
+    NegativeExpression: { expression: CoastlineObject<ArithmeticOVM, ArithmeticExpression> }
+    PlusExpression: { left: CoastlineObject<ArithmeticOVM, ArithmeticExpression>, right: CoastlineObject<ArithmeticOVM, ArithmeticExpression> },
+    MinusExpression: { left: CoastlineObject<ArithmeticOVM, ArithmeticExpression>, right: CoastlineObject<ArithmeticOVM, ArithmeticExpression> },
+    TimesExpression: { left: CoastlineObject<ArithmeticOVM, ArithmeticExpression>, right: CoastlineObject<ArithmeticOVM, ArithmeticExpression> }
+}
+
+export type ArithmeticEVM = {
+    WithMessage: string
+}
+
+export const expect_arithmetic_expression = expect_types<ArithmeticOVM, ArithmeticEVM, ArithmeticExpression>('Integer', 'NegativeExpression', 'PlusExpression', 'MinusExpression', 'TimesExpression')
+export const expect_integer = expect_type<ArithmeticOVM, ArithmeticEVM, 'Integer'>('Integer')
+export const expect_negative_expression = expect_type<ArithmeticOVM, ArithmeticEVM, 'NegativeExpression'>('NegativeExpression')
+export const expect_plus_expression = expect_type<ArithmeticOVM, ArithmeticEVM, 'PlusExpression'>('PlusExpression')
+export const expect_minus_expression = expect_type<ArithmeticOVM, ArithmeticEVM, 'MinusExpression'>('MinusExpression')
+export const expect_times_expression = expect_type<ArithmeticOVM, ArithmeticEVM, 'TimesExpression'>('TimesExpression')
+
+export const evaluate_arithmetic_expression_def = operator_definition<ArithmeticOVM, ArithmeticEVM>('evaluate_arithmetic_expression', ['expression'], (inputs) =>
     expect_arithmetic_expression(inputs[0], (expression) =>
         options_tree([
             ['Finished Evaluating', () => expect_integer(expression, () => expression)],
@@ -599,13 +623,13 @@ export const evaluate_arithmetic_expression_def = operator_definition('evaluate_
     )
 )
 
-export const integer_negate_def = operator_definition('negate', ['x'], (inputs) => expect_integer(inputs[0], (x) => obj('Integer', -x.value)))
+export const integer_negate_def = operator_definition<ArithmeticOVM, ArithmeticEVM>('negate', ['x'], (inputs) => expect_integer(inputs[0], (x) => obj('Integer', -x.value)))
 
-export const mk_check_result_def = (actual_answer: number) => operator_definition('check_result', ['user_answer'], (inputs) =>
+export const mk_check_result_def = (actual_answer: number) => operator_definition<ArithmeticOVM, ArithmeticEVM>('check_result', ['user_answer'], (inputs) =>
     expect_integer(inputs[0], (user_answer) => user_answer.value !== actual_answer ? err('WithMessage', `${user_answer.value} is not the answer.  Try again!`) : obj('Integer', user_answer.value))
 )
 
-export const integer_plus_def = operator_definition('plus', ['x', 'y'], (inputs) =>
+export const integer_plus_def = operator_definition<ArithmeticOVM, ArithmeticEVM>('plus', ['x', 'y'], (inputs) =>
     expect_integer(inputs[0], (x) => expect_integer(inputs[1], (y) =>
         operator_app(mk_check_result_def(x.value + y.value), [
             req2('Integer')
@@ -613,7 +637,7 @@ export const integer_plus_def = operator_definition('plus', ['x', 'y'], (inputs)
     ))
 )
 
-export const integer_minus_def = operator_definition('minus', ['x', 'y'], (inputs) =>
+export const integer_minus_def = operator_definition<ArithmeticOVM, ArithmeticEVM>('minus', ['x', 'y'], (inputs) =>
     expect_integer(inputs[0], (x) => expect_integer(inputs[1], (y) =>
         operator_app(mk_check_result_def(x.value - y.value), [
             req2('Integer')
@@ -621,7 +645,7 @@ export const integer_minus_def = operator_definition('minus', ['x', 'y'], (input
     ))
 )
 
-export const integer_times_def = operator_definition('times', ['x', 'y'], (inputs) =>
+export const integer_times_def = operator_definition<ArithmeticOVM, ArithmeticEVM>('times', ['x', 'y'], (inputs) =>
     expect_integer(inputs[0], (x) => expect_integer(inputs[1], (y) =>
         operator_app(mk_check_result_def(x.value * y.value), [
             req2('Integer')
@@ -630,13 +654,31 @@ export const integer_times_def = operator_definition('times', ['x', 'y'], (input
 )
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////// PIERCE TYEPS AND PROGRAMMING LANGUAGES //////////////////////////////////////////
+////////////////////////////////////////// PIERCE TYPES AND PROGRAMMING LANGUAGES //////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-export type PT = CoastlineObject<'PierceTerm'>
-export const expect_pierce_term = expect_type('PierceTerm')
-export const expect_pierce_term_set = expect_type('PierceTermSet')
+export type PTermOVM = {
+    Natural_Number: number
+    PierceTerm:
+        | 'true'
+        | 'false'
+        | { if: CoastlineObject<PTermOVM, 'PierceTerm'>, then: CoastlineObject<PTermOVM, 'PierceTerm'>, else: CoastlineObject<PTermOVM, 'PierceTerm'> }
+        | '0'
+        | { succ: CoastlineObject<PTermOVM, 'PierceTerm'> }
+        | { pred: CoastlineObject<PTermOVM, 'PierceTerm'> }
+        | { iszero: CoastlineObject<PTermOVM, 'PierceTerm'> }
+    PierceTermSet: CoastlineObject<PTermOVM, 'PierceTerm'>[]
+}
 
-export const make_pierce_term_options_tree = () =>
+export type PTermEVM = {
+    WithMessage: string
+}
+
+export type PT = CoastlineObject<PTermOVM, 'PierceTerm'>
+export const expect_pierce_term = expect_type<PTermOVM, PTermEVM, 'PierceTerm'>('PierceTerm')
+export const expect_pierce_term_set = expect_type<PTermOVM, PTermEVM, 'PierceTermSet'>('PierceTermSet')
+export const pnat = object_constructor<PTermOVM, 'Natural_Number'>('Natural_Number')
+
+export const make_pierce_term_options_tree = (): CoastlineControl<PTermOVM, PTermEVM> =>
     options_tree([
         ['true', () => obj('PierceTerm', 'true')],
         ['false', () => obj('PierceTerm', 'false')],
@@ -657,27 +699,29 @@ export const make_pierce_term_options_tree = () =>
         ])]
     ])
 
-export const if_then_else_def = operator_definition('if_then_else', ['t1', 't2', 't3'], (inputs) =>
+export const if_then_else_def = operator_definition<PTermOVM, PTermEVM>('if_then_else', ['t1', 't2', 't3'], (inputs) =>
     expect_pierce_term(inputs[0], (t1) => expect_pierce_term(inputs[1], (t2) => expect_pierce_term(inputs[2], (t3) =>
         obj('PierceTerm', { if: t1, then: t2, else: t3})
     )))
 )
 
-export const pierce_succ_def = operator_definition('succ', ['t'], (inputs) =>
+export const pierce_succ_def = operator_definition<PTermOVM, PTermEVM>('succ', ['t'], (inputs) =>
     expect_pierce_term(inputs[0], (t) => obj('PierceTerm', { succ: t }))
 )
 
-export const pred_def = operator_definition('pred', ['t'], (inputs) =>
+export const pred_def = operator_definition<PTermOVM, PTermEVM>('pred', ['t'], (inputs) =>
     expect_pierce_term(inputs[0], (t) => obj('PierceTerm', { pred: t }))
 )
 
-export const iszero_def = operator_definition('iszero', ['t'], (inputs) =>
+export const iszero_def = operator_definition<PTermOVM, PTermEVM>('iszero', ['t'], (inputs) =>
     expect_pierce_term(inputs[0], (t) => obj('PierceTerm', { iszero: t }))
 )
 
+export const expect_pierce_natural = expect_type<PTermOVM, PTermEVM, 'Natural_Number'>('Natural_Number')
+
 // (Natural_Number) => PierceTermSet
-export const terms_set_def = operator_definition('terms_set', ['n'], (inputs) =>
-    expect_natural(inputs[0], (n) =>
+export const terms_set_def = operator_definition<PTermOVM, PTermEVM>('terms_set', ['n'], (inputs) =>
+    expect_pierce_natural(inputs[0], (n) =>
         n.value === 0 ? obj('PierceTermSet', [])
         : operator_app(union_pierce_term_sets_def, [
             obj('PierceTermSet', [obj('PierceTerm', 'true'), obj('PierceTerm', 'false'), obj('PierceTerm', '0')]),
@@ -701,38 +745,41 @@ export const terms_set_def = operator_definition('terms_set', ['n'], (inputs) =>
     )
 )
 
-export const make_declare_pierce_term_set_then_op_def = (op_name: string, control_f: (c: CoastlineObject<'PierceTermSet'>) => CoastlineControl) =>
+export const make_declare_pierce_term_set_then_op_def = (
+    op_name: string,
+    control_f: (c: CoastlineObject<PTermOVM, 'PierceTermSet'>) => CoastlineControl<PTermOVM, PTermEVM>
+): OperatorDefinition<PTermOVM, PTermEVM> =>
     operator_definition(op_name, ['list'], (inputs) =>
         expect_pierce_term_set(inputs[0], (list) => control_f(list)))
 
 // (PierceTermSet, PierceTermSet) => PierceTermSet
-export const union_pierce_term_sets_def = operator_definition('union', ['l1', 'l2'], (inputs) =>
+export const union_pierce_term_sets_def = operator_definition<PTermOVM, PTermEVM>('union', ['l1', 'l2'], (inputs) =>
     expect_pierce_term_set(inputs[0], (l1) => expect_pierce_term_set(inputs[1], (l2) =>
         obj('PierceTermSet', unionWith(l1.value, l2.value, isEqual))
     ))
 )
 
-export const succ_terms_set_def = operator_definition('succ_terms_set', ['term_set'], (inputs) =>
+export const succ_terms_set_def = operator_definition<PTermOVM, PTermEVM>('succ_terms_set', ['term_set'], (inputs) =>
     expect_pierce_term_set(inputs[0], (term_set) =>
         obj('PierceTermSet', term_set.value.map((t) => obj('PierceTerm', { succ: t })))
     )
 )
 
-export const pred_terms_set_def = operator_definition('pred_terms_set', ['term_set'], (inputs) =>
+export const pred_terms_set_def = operator_definition<PTermOVM, PTermEVM>('pred_terms_set', ['term_set'], (inputs) =>
     expect_pierce_term_set(inputs[0], (term_set) =>
         obj('PierceTermSet', term_set.value.map((t) => obj('PierceTerm', { pred: t })))
     )
 )
 
-export const iszero_terms_set_def = operator_definition('iszero_terms_set', ['term_set'], (inputs) =>
+export const iszero_terms_set_def = operator_definition<PTermOVM, PTermEVM>('iszero_terms_set', ['term_set'], (inputs) =>
     expect_pierce_term_set(inputs[0], (term_set) =>
         obj('PierceTermSet', term_set.value.map((t) => obj('PierceTerm', { iszero: t })))
     )
 )
 
-export const if_then_else_terms_set_def = operator_definition('if_then_else_set', ['term_set'], (inputs) =>
+export const if_then_else_terms_set_def = operator_definition<PTermOVM, PTermEVM>('if_then_else_set', ['term_set'], (inputs) =>
     expect_pierce_term_set(inputs[0], (term_set) => {
-        const ret_set: CoastlineObject<'PierceTermSet'> = obj('PierceTermSet', [])
+        const ret_set: CoastlineObject<PTermOVM, 'PierceTermSet'> = obj('PierceTermSet', [])
         for (const t1 of term_set.value)
             for (const t2 of term_set.value)
                 for (const t3 of term_set.value)
@@ -742,7 +789,7 @@ export const if_then_else_terms_set_def = operator_definition('if_then_else_set'
 )
 
 // (PierceTermSet) => Natural_Number
-export const pierce_set_size_def = operator_definition('pierce_set_size', ['set'], (inputs) =>
+export const pierce_set_size_def = operator_definition<PTermOVM, PTermEVM>('pierce_set_size', ['set'], (inputs) =>
     expect_pierce_term_set(inputs[0], (set) =>
         obj('Natural_Number', set.value.length)
     )
@@ -750,14 +797,14 @@ export const pierce_set_size_def = operator_definition('pierce_set_size', ['set'
 
 const pierce_term_cases = (
     term: PT,
-    clause_true: [string, () => CoastlineControl],
-    clause_false: [string, () => CoastlineControl],
-    clause_0: [string, () => CoastlineControl],
-    clause_succ: [string, (t: PT) => CoastlineControl],
-    clause_pred: [string, (t: PT) => CoastlineControl],
-    clause_iszero: [string, (t: PT) => CoastlineControl],
-    clause_if_then_else: [string, (t1: PT, t2: PT, t3: PT) => CoastlineControl]
-) => options_tree([
+    clause_true: [string, () => CoastlineControl<PTermOVM, PTermEVM>],
+    clause_false: [string, () => CoastlineControl<PTermOVM, PTermEVM>],
+    clause_0: [string, () => CoastlineControl<PTermOVM, PTermEVM>],
+    clause_succ: [string, (t: PT) => CoastlineControl<PTermOVM, PTermEVM>],
+    clause_pred: [string, (t: PT) => CoastlineControl<PTermOVM, PTermEVM>],
+    clause_iszero: [string, (t: PT) => CoastlineControl<PTermOVM, PTermEVM>],
+    clause_if_then_else: [string, (t1: PT, t2: PT, t3: PT) => CoastlineControl<PTermOVM, PTermEVM>]
+): CoastlineControl<PTermOVM, PTermEVM> => options_tree([
         [clause_true[0], () => term.value !== 'true' ? err('WithMessage', 'The given Term is not \'true\'.') : clause_true[1]()],
         [clause_false[0], () => term.value !== 'false' ? err('WithMessage', 'The given Term is not \'false\'') : clause_false[1]()],
         [clause_0[0], () => term.value !== '0' ? err('WithMessage', 'The given Term is not \'0\'') : clause_0[1]()],
@@ -771,7 +818,7 @@ const pierce_term_cases = (
             : clause_if_then_else[1](term.value.if, term.value.then, term.value.else)]
     ])
 
-export const constants_in_pierce_term_def = operator_definition('constants_in_pierce_term', ['term'], (inputs) =>
+export const constants_in_pierce_term_def = operator_definition<PTermOVM, PTermEVM>('constants_in_pierce_term', ['term'], (inputs) =>
     expect_pierce_term(inputs[0], (term) => pierce_term_cases(term,
         ['input_is_true', () => obj('PierceTermSet', [term])],
         ['input_is_false', () => obj('PierceTermSet', [term])],
@@ -791,27 +838,35 @@ export const constants_in_pierce_term_def = operator_definition('constants_in_pi
     ))
 )
 
+export const p_plus_def = operator_definition<PTermOVM, PTermEVM>('plus', ['n1', 'n2'], (inputs) =>
+    expect_pierce_natural(inputs[0], (n1) =>
+        expect_pierce_natural(inputs[1], (n2) =>
+            obj('Natural_Number', n1.value + n2.value)
+        )
+    )
+)
+
 // (PierceTerm) => Natural_Number
-export const size_of_pierce_term_def = operator_definition('size_of_pierce_term', ['term'], (inputs) =>
+export const size_of_pierce_term_def = operator_definition<PTermOVM, PTermEVM>('size_of_pierce_term', ['term'], (inputs) =>
     expect_pierce_term(inputs[0], (term) => pierce_term_cases(term,
-        ['input_is_true', () => nat(1)],
-        ['input_is_false', () => nat(1)],
-        ['input_is_0', () => nat(1)],
-        ['input_is_succ', (t) => operator_app(plus_def, [
+        ['input_is_true', () => pnat(1)],
+        ['input_is_false', () => pnat(1)],
+        ['input_is_0', () => pnat(1)],
+        ['input_is_succ', (t) => operator_app(p_plus_def, [
             operator_app(size_of_pierce_term_def, [t]),
-            nat(1)
+            pnat(1)
         ])],
-        ['input_is_pred', (t) => operator_app(plus_def, [
+        ['input_is_pred', (t) => operator_app(p_plus_def, [
             operator_app(size_of_pierce_term_def, [t]),
-            nat(1)
+            pnat(1)
         ])],
-        ['input_is_iszero', (t) => operator_app(plus_def, [
+        ['input_is_iszero', (t) => operator_app(p_plus_def, [
             operator_app(size_of_pierce_term_def, [t]),
-            nat(1)
+            pnat(1)
         ])],
-        ['input_is_if_then_else', (t1, t2, t3) => operator_app(plus_def, [
+        ['input_is_if_then_else', (t1, t2, t3) => operator_app(p_plus_def, [
             operator_app(size_of_pierce_term_def, [t1]),
-            operator_app(plus_def, [
+            operator_app(p_plus_def, [
                 operator_app(size_of_pierce_term_def, [t2]),
                 operator_app(size_of_pierce_term_def, [t3]),
             ])
@@ -819,27 +874,30 @@ export const size_of_pierce_term_def = operator_definition('size_of_pierce_term'
     ))
 )
 
+export const p_max_def = operator_definition<PTermOVM, PTermEVM>('max', ['n1', 'n2'], (inputs) =>
+    expect_pierce_natural(inputs[0], (n1) => expect_pierce_natural(inputs[1], (n2) => n1.value >= n2.value ? n1 : n2)))
+
 // (PierceTerm) => Natural_Number
-export const depth_of_pierce_term_def = operator_definition('depth_of_pierce_term', ['term'], (inputs) =>
+export const depth_of_pierce_term_def = operator_definition<PTermOVM, PTermEVM>('depth_of_pierce_term', ['term'], (inputs) =>
     expect_pierce_term(inputs[0], (term) => pierce_term_cases(term,
-        ['input_is_true', () => nat(1)],
-        ['input_is_false', () => nat(1)],
-        ['input_is_0', () => nat(1)],
-        ['input_is_succ', (t) => operator_app(plus_def, [
+        ['input_is_true', () => pnat(1)],
+        ['input_is_false', () => pnat(1)],
+        ['input_is_0', () => pnat(1)],
+        ['input_is_succ', (t) => operator_app(p_plus_def, [
             operator_app(size_of_pierce_term_def, [t]),
-            nat(1)
+            pnat(1)
         ])],
-        ['input_is_pred', (t) => operator_app(plus_def, [
+        ['input_is_pred', (t) => operator_app(p_plus_def, [
             operator_app(size_of_pierce_term_def, [t]),
-            nat(1)
+            pnat(1)
         ])],
-        ['input_is_iszero', (t) => operator_app(plus_def, [
+        ['input_is_iszero', (t) => operator_app(p_plus_def, [
             operator_app(size_of_pierce_term_def, [t]),
-            nat(1)
+            pnat(1)
         ])],
-        ['input_is_if_then_else', (t1, t2, t3) => operator_app(max_def, [
+        ['input_is_if_then_else', (t1, t2, t3) => operator_app(p_max_def, [
             operator_app(depth_of_pierce_term_def, [t1]),
-            operator_app(max_def, [
+            operator_app(p_max_def, [
                 operator_app(depth_of_pierce_term_def, [t2]),
                 operator_app(depth_of_pierce_term_def, [t3]),
             ])
@@ -847,7 +905,7 @@ export const depth_of_pierce_term_def = operator_definition('depth_of_pierce_ter
     ))
 )
 
-export const evaluate_boolean_pierce_term_def = operator_definition('evaluate_boolean_pierce_term', ['term'], (inputs) =>
+export const evaluate_boolean_pierce_term_def = operator_definition<PTermOVM, PTermEVM>('evaluate_boolean_pierce_term', ['term'], (inputs) =>
     expect_pierce_term(inputs[0], (term) =>
         !is_string(term.value) && !('if' in term.value) ? err('WithMessage', 'The given Pierce Term is not a boolean Term, so you can\'t run this function with it.')
         : options_tree([
@@ -880,68 +938,99 @@ export const evaluate_boolean_pierce_term_def = operator_definition('evaluate_bo
 )
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////// PIERCE TYPES AND PROGRAMMING LANGUAGES //////////////////////////////////////////
+//////////////////////////////////////////// EXTENDED CALCULUS OF CONSTRUCTIONS ////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const expect_ecc_term = expect_types(...ecc_term_types)
-const expect_ecc_prop = expect_type('ECCProp')
-const expect_ecc_type = expect_type('ECCType')
-const expect_ecc_variable = expect_type('ECCVariable')
-const expect_ecc_sd = expect_type('ECCSD')
-const expect_ecc_pair = expect_type('ECCPair')
-const expect_ecc_projection = expect_type('ECCProject')
-const expect_ecc_application = expect_type('ECCApplication')
-const expect_ecc_arrow = expect_type('ECCArrow')
-const expect_ecc_product = expect_type('ECCProduct')
-const expect_ecc_pi = expect_type('ECCPi')
-const expect_ecc_lambda = expect_type('ECCLambda')
-const expect_ecc_sigma = expect_type('ECCSigma')
-const expect_ecc_binder = expect_types('ECCPi', 'ECCLambda', 'ECCSigma')
-const expect_ecc_term_set = expect_type('ECCTermSet')
-const ecc_term_set = (...terms: CoastlineObject<ECCTerm>[]) => obj('ECCTermSet', terms)
+export type ECCTermOVM = {
+    String: string
+    Natural_Number: number
+    Confirmation: undefined
+    Boolean : boolean
+    ECCProp: undefined
+    ECCType: number
+    ECCVariable: string
+    ECCApplication: { head: CoastlineObject<ECCTermOVM, ECCTerm>, arg: CoastlineObject<ECCTermOVM, ECCTerm> }
+    ECCArrow: { input: CoastlineObject<ECCTermOVM, ECCTerm>, output: CoastlineObject<ECCTermOVM, ECCTerm> }
+    ECCProduct: { left: CoastlineObject<ECCTermOVM, ECCTerm>, right: CoastlineObject<ECCTermOVM, ECCTerm> }
+    ECCPi: { bound: CoastlineObject<ECCTermOVM, 'ECCVariable'>, bound_type: CoastlineObject<ECCTermOVM, ECCTerm>, scope: CoastlineObject<ECCTermOVM, ECCTerm> }
+    ECCLambda: { bound: CoastlineObject<ECCTermOVM, 'ECCVariable'>, bound_type: CoastlineObject<ECCTermOVM, ECCTerm>, scope: CoastlineObject<ECCTermOVM, ECCTerm> }
+    ECCSigma: { bound: CoastlineObject<ECCTermOVM, 'ECCVariable'>, bound_type: CoastlineObject<ECCTermOVM, ECCTerm>, scope: CoastlineObject<ECCTermOVM, ECCTerm> }
+    ECCPair: { pair_type: CoastlineObject<ECCTermOVM, ECCTerm>, left: CoastlineObject<ECCTermOVM, ECCTerm>, right: CoastlineObject<ECCTermOVM, ECCTerm> }
+    ECCProject: { project: 'left' | 'right', pair: CoastlineObject<ECCTermOVM, ECCTerm> }
+    ECCTermSet: CoastlineObject<ECCTermOVM, ECCTerm>[]
+    ECCSD: number
+    ECCSDContext: CoastlineObject<ECCTermOVM, 'ECCVariable'>[]
+}
 
-export const type_universe_def = operator_definition('type_universe', ['order'], (inputs) =>
-    expect_natural(inputs[0], (order) => obj('ECCType', order.value)))
+export type ECCTermEVM = {
+    WithMessage: string
+}
 
-export const variable_def = operator_definition('variable', ['id'], (inputs) =>
-    expect_string(inputs[0], (id) => obj('ECCVariable', id.value)))
+export type ECCTerm = 'ECCProp' | 'ECCType' | 'ECCVariable' | 'ECCSD' | 'ECCPair' | 'ECCProject' | 'ECCApplication' | 'ECCArrow' | 'ECCProduct' | 'ECCPi' | 'ECCLambda' | 'ECCSigma' | 'ECCTermSet'
+export type ECCBinder = 'ECCPi' | 'ECCLambda' | 'ECCSigma'
 
-export const sd_def = operator_definition('static_distance', ['index'], (inputs) =>
-    expect_natural(inputs[0], (index) => obj('ECCSD', index.value)))
+const expect_ecc_term = expect_types<ECCTermOVM, ECCTermEVM, ECCTerm>(...ecc_term_types)
+const expect_ecc_prop = expect_type<ECCTermOVM, ECCTermEVM, 'ECCProp'>('ECCProp')
+const expect_ecc_type = expect_type<ECCTermOVM, ECCTermEVM, 'ECCType'>('ECCType')
+const expect_ecc_variable = expect_type<ECCTermOVM, ECCTermEVM, 'ECCVariable'>('ECCVariable')
+const expect_ecc_sd = expect_type<ECCTermOVM, ECCTermEVM, 'ECCSD'>('ECCSD')
+const expect_ecc_pair = expect_type<ECCTermOVM, ECCTermEVM, 'ECCPair'>('ECCPair')
+const expect_ecc_projection = expect_type<ECCTermOVM, ECCTermEVM, 'ECCProject'>('ECCProject')
+const expect_ecc_application = expect_type<ECCTermOVM, ECCTermEVM, 'ECCApplication'>('ECCApplication')
+const expect_ecc_arrow = expect_type<ECCTermOVM, ECCTermEVM, 'ECCArrow'>('ECCArrow')
+const expect_ecc_product = expect_type<ECCTermOVM, ECCTermEVM, 'ECCProduct'>('ECCProduct')
+const expect_ecc_pi = expect_type<ECCTermOVM, ECCTermEVM, 'ECCPi'>('ECCPi')
+const expect_ecc_lambda = expect_type<ECCTermOVM, ECCTermEVM, 'ECCLambda'>('ECCLambda')
+const expect_ecc_sigma = expect_type<ECCTermOVM, ECCTermEVM, 'ECCSigma'>('ECCSigma')
+const expect_ecc_binder = expect_types<ECCTermOVM, ECCTermEVM, ECCBinder>('ECCPi', 'ECCLambda', 'ECCSigma')
+const expect_ecc_term_set = expect_type<ECCTermOVM, ECCTermEVM, 'ECCTermSet'>('ECCTermSet')
+const expect_ecc_natural = expect_type<ECCTermOVM, ECCTermEVM, 'Natural_Number'>('Natural_Number')
+const expect_ecc_string = expect_type<ECCTermOVM, ECCTermEVM, 'String'>('String')
+const expect_ecc_boolean = expect_type<ECCTermOVM, ECCTermEVM, 'Boolean'>('Boolean')
+const ecc_term_set = (...terms: CoastlineObject<ECCTermOVM, ECCTerm>[]): CoastlineObject<ECCTermOVM, 'ECCTermSet'> => obj('ECCTermSet', terms)
 
-export const application_def = operator_definition('application', ['head', 'arg'], (inputs) =>
+export const type_universe_def = operator_definition<ECCTermOVM, ECCTermEVM>('type_universe', ['order'], (inputs) =>
+    expect_ecc_natural(inputs[0], (order) => obj('ECCType', order.value)))
+
+export const variable_def = operator_definition<ECCTermOVM, ECCTermEVM>('variable', ['id'], (inputs) =>
+    expect_ecc_string(inputs[0], (id) => obj('ECCVariable', id.value)))
+
+export const sd_def = operator_definition<ECCTermOVM, ECCTermEVM>('static_distance', ['index'], (inputs) =>
+    expect_ecc_natural(inputs[0], (index) => obj('ECCSD', index.value)))
+
+export const application_def = operator_definition<ECCTermOVM, ECCTermEVM>('application', ['head', 'arg'], (inputs) =>
     expect_ecc_term(inputs[0], (head) => expect_ecc_term(inputs[1], (arg) => obj('ECCApplication', { head, arg }))))
 
-export const arrow_def = operator_definition('arrow', ['input_type', 'output_type'], (inputs) =>
+export const arrow_def = operator_definition<ECCTermOVM, ECCTermEVM>('arrow', ['input_type', 'output_type'], (inputs) =>
     expect_ecc_term(inputs[0], (input) => expect_ecc_term(inputs[1], (output) => obj('ECCArrow', { input, output }))))
 
-export const product_def = operator_definition('product', ['left_type', 'right_type'], (inputs) =>
+export const product_def = operator_definition<ECCTermOVM, ECCTermEVM>('product', ['left_type', 'right_type'], (inputs) =>
     expect_ecc_term(inputs[0], (left) => expect_ecc_term(inputs[1], (right) => obj('ECCProduct', { left, right }))))
 
-export const pi_def = operator_definition('pi', ['bound', 'bound_type', 'scope'], (inputs) =>
+export const pi_def = operator_definition<ECCTermOVM, ECCTermEVM>('pi', ['bound', 'bound_type', 'scope'], (inputs) =>
     expect_ecc_variable(inputs[0], (bound) => expect_ecc_term(inputs[1], (bound_type) => expect_ecc_term(inputs[2], (scope) =>
         { throw new Error }))))
         // operator_app(ecc_term_abbreviate_def, [obj('ECCPi', { bound, bound_type, scope })])))))
 
-export const sigma_def = operator_definition('sigma', ['bound', 'bound_type', 'scope'], (inputs) =>
+export const sigma_def = operator_definition<ECCTermOVM, ECCTermEVM>('sigma', ['bound', 'bound_type', 'scope'], (inputs) =>
     expect_ecc_variable(inputs[0], (bound) => expect_ecc_term(inputs[1], (bound_type) => expect_ecc_term(inputs[2], (scope) =>
         { throw new Error }))))
         // operator_app(ecc_term_abbreviate_def, [obj('ECCSigma', { bound, bound_type, scope })])))))
 
-export const lambda_def = operator_definition('lambda', ['bound', 'bound_type', 'scope'], (inputs) =>
+export const lambda_def = operator_definition<ECCTermOVM, ECCTermEVM>('lambda', ['bound', 'bound_type', 'scope'], (inputs) =>
     expect_ecc_variable(inputs[0], (bound) => expect_ecc_term(inputs[1], (bound_type) => expect_ecc_term(inputs[2], (scope) =>
         obj('ECCLambda', { bound, bound_type, scope })))))
 
-export const pair_def = operator_definition('pair', ['pair_type', 'left', 'right'], (inputs) =>
+export const pair_def = operator_definition<ECCTermOVM, ECCTermEVM>('pair', ['pair_type', 'left', 'right'], (inputs) =>
     expect_ecc_term(inputs[0], (pair_type) => expect_ecc_term(inputs[1], (left) => expect_ecc_term(inputs[2], (right) =>
         obj('ECCPair', { pair_type, left, right })))))
 
-export const left_projection_def = operator_definition('left_projection', ['pair'], (inputs) =>
+export const left_projection_def = operator_definition<ECCTermOVM, ECCTermEVM>('left_projection', ['pair'], (inputs) =>
     expect_ecc_term(inputs[0], (pair) => obj('ECCProject', { project: 'left', pair })))
 
-export const right_projection_def = operator_definition('right_projection', ['pair'], (inputs) =>
+export const right_projection_def = operator_definition<ECCTermOVM, ECCTermEVM>('right_projection', ['pair'], (inputs) =>
     expect_ecc_term(inputs[0], (pair) => obj('ECCProject', { project: 'right', pair })))
 
-export const ecc_term_options = () => options_tree([
+export const ecc_term_options = (): CoastlineControl<ECCTermOVM, ECCTermEVM> => options_tree([
     ['Prop', () => obj('ECCProp', undefined)],
     ['Type', () => operator_app(type_universe_def, [req2('Natural_Number')])],
     ['Variable', () => operator_app(variable_def, [req2('String')])],
@@ -986,13 +1075,13 @@ export const ecc_term_options = () => options_tree([
     ])]
 ])
 
-export const check_ecc_free_variables = (term: CoastlineObject<ECCTerm>): CoastlineControl =>
+export const check_ecc_free_variables = (term: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineControl<ECCTermOVM, ECCTermEVM> =>
     check_coastline_correctness(
         ecc_free_variables(term),
         operator_app(ecc_free_variables_def, [term])
     )
 
-const ecc_free_variables = (term: CoastlineObject<ECCTerm>): CoastlineObject<'ECCTermSet'> => {
+const ecc_free_variables = (term: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineObject<ECCTermOVM, 'ECCTermSet'> => {
     if (cta('ECCProp', term) || cta('ECCType', term))
         return ecc_term_set()
     if (cta('ECCVariable', term))
@@ -1022,7 +1111,7 @@ const ecc_free_variables = (term: CoastlineObject<ECCTerm>): CoastlineObject<'EC
 }
 
 // (ECCTerm) => ECCTermSet
-export const ecc_free_variables_def = operator_definition('free_variables', ['term'], (inputs) =>
+export const ecc_free_variables_def = operator_definition<ECCTermOVM, ECCTermEVM>('free_variables', ['term'], (inputs) =>
     expect_ecc_term(inputs[0], (term) => options_tree([
         // ['no_free_variables', () => ],
         ['prop', () => expect_ecc_prop(term, () => ecc_term_set())],
@@ -1055,7 +1144,7 @@ export const ecc_free_variables_def = operator_definition('free_variables', ['te
     ]))
 )
 
-const ecc_terms_syntactically_equal = (t1: CoastlineObject<ECCTerm>, t2: CoastlineObject<ECCTerm>): boolean => {
+const ecc_terms_syntactically_equal = (t1: CoastlineObject<ECCTermOVM, ECCTerm>, t2: CoastlineObject<ECCTermOVM, ECCTerm>): boolean => {
     if (cta('ECCProp', t1) && cta('ECCProp', t2))
         return true
     if (cta('ECCType', t1) && cta('ECCType', t2))
@@ -1079,10 +1168,10 @@ const ecc_terms_syntactically_equal = (t1: CoastlineObject<ECCTerm>, t2: Coastli
     return false
 }
 
-const ecc_term_appears_in_term_set = (term: CoastlineObject<ECCTerm>, set: CoastlineObject<'ECCTermSet'>): boolean =>
+const ecc_term_appears_in_term_set = (term: CoastlineObject<ECCTermOVM, ECCTerm>, set: CoastlineObject<ECCTermOVM, 'ECCTermSet'>): boolean =>
     defined(set.value.find((t) => ecc_terms_syntactically_equal(term, t)))
 
-export const union_ecc_term_set_def = operator_definition('union_term_set', ['set1', 'set2'], (inputs) =>
+export const union_ecc_term_set_def = operator_definition<ECCTermOVM, ECCTermEVM>('union_term_set', ['set1', 'set2'], (inputs) =>
     expect_ecc_term_set(inputs[0], (set1) => expect_ecc_term_set(inputs[1], (set2) => options_tree([
         ['set2_is_empty', () => set1],
         ['first_element_of_set2_is_not_in_set1', () =>
@@ -1100,13 +1189,13 @@ export const union_ecc_term_set_def = operator_definition('union_term_set', ['se
     ])))
 )
 
-const remove_from_ecc_term_set = (term: CoastlineObject<ECCTerm>, set: CoastlineObject<'ECCTermSet'>): CoastlineObject<'ECCTermSet'> =>
+const remove_from_ecc_term_set = (term: CoastlineObject<ECCTermOVM, ECCTerm>, set: CoastlineObject<ECCTermOVM, 'ECCTermSet'>): CoastlineObject<ECCTermOVM, 'ECCTermSet'> =>
     obj('ECCTermSet', set.value.filter((t) => !ecc_terms_syntactically_equal(term, t)))
 
 const expect_confirmation = expect_type('Confirmation')
 
-export const check_coastline_correctness = (actual_answer: AnyCoastlineObject, control: CoastlineControl): CoastlineControl => {
-    const check_correctness_def = operator_definition('check_correctness', ['confirmation', 'your_answer'], (inputs) =>
+export const check_coastline_correctness = (actual_answer: AnyCoastlineObject<ECCTermOVM>, control: CoastlineControl<ECCTermOVM, ECCTermEVM>): CoastlineControl<ECCTermOVM, ECCTermEVM> => {
+    const check_correctness_def = operator_definition<ECCTermOVM, ECCTermEVM>('check_correctness', ['confirmation', 'your_answer'], (inputs) =>
         declare(inputs[1], (your_answer) => {
             const your_answer_equals_actual_answer = isEqual(your_answer, actual_answer)
             if (your_answer_equals_actual_answer)
@@ -1122,13 +1211,13 @@ export const check_coastline_correctness = (actual_answer: AnyCoastlineObject, c
     ])
 }
 
-export const remove_from_ecc_term_set_def = operator_definition('remove_from_term_set', ['term', 'set'], (inputs) =>
+export const remove_from_ecc_term_set_def = operator_definition<ECCTermOVM, ECCTermEVM>('remove_from_term_set', ['term', 'set'], (inputs) =>
     expect_ecc_term(inputs[0], (term) => expect_ecc_term_set(inputs[1], (set) =>
         operator_app(remove_from_ecc_term_set_acc_def, [term, set, ecc_term_set()])
     ))
 )
 
-export const remove_from_ecc_term_set_acc_def = operator_definition('remove_from_term_set_acc', ['term', 'set', 'set_to_return'], (inputs) =>
+export const remove_from_ecc_term_set_acc_def = operator_definition<ECCTermOVM, ECCTermEVM>('remove_from_term_set_acc', ['term', 'set', 'set_to_return'], (inputs) =>
     expect_ecc_term(inputs[0], (term) => expect_ecc_term_set(inputs[1], (set) => expect_ecc_term_set(inputs[2], (set_to_return) =>
         options_tree([
             ['term_does_not_appear_in_set', () => obj('ECCTermSet', [...set_to_return.value, ...set.value])],
@@ -1152,14 +1241,14 @@ export const remove_from_ecc_term_set_acc_def = operator_definition('remove_from
     )))
 )
 
-export const check_ecc_term_abbreviate = (term: CoastlineObject<ECCTerm>): CoastlineControl =>
+export const check_ecc_term_abbreviate = (term: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineControl<ECCTermOVM, ECCTermEVM> =>
     { throw new Error('') }
     // check_coastline_correctness(
     //     ecc_term_abbreviate(term),
     //     operator_app(ecc_term_abbreviate_def, [term])
     // )
 
-const ecc_term_abbreviate = (term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+const ecc_term_abbreviate = (term: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineObject<ECCTermOVM, ECCTerm> => {
     if (cta('ECCPi', term)) {
         const bound_in_scope = defined(ecc_free_variables(term.value.scope).value.find((fv) => ecc_terms_syntactically_equal(term.value.bound, fv)))
         if (bound_in_scope)
@@ -1180,7 +1269,7 @@ const ecc_term_abbreviate = (term: CoastlineObject<ECCTerm>): CoastlineObject<EC
     return term
 }
 
-const ecc_shallow_term_abbreviate = (term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+const ecc_shallow_term_abbreviate = (term: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineObject<ECCTermOVM, ECCTerm> => {
     if (cta('ECCPi', term)) {
         const scope_fvs = ecc_free_variables(term.value.scope)
         if (!ecc_term_appears_in_term_set(term.value.bound, scope_fvs))
@@ -1198,7 +1287,7 @@ const ecc_shallow_term_abbreviate = (term: CoastlineObject<ECCTerm>): CoastlineO
     return term
 }
 
-export const ecc_shallow_term_abbreviate_def = operator_definition('abbreviate', ['term'], (inputs) =>
+export const ecc_shallow_term_abbreviate_def = operator_definition<ECCTermOVM, ECCTermEVM>('abbreviate', ['term'], (inputs) =>
     expect_ecc_term(inputs[0], (term) => options_tree([
         // ['do not change', () => cta('') term],
         // ['to arrow type', () => expect_pi_term
@@ -1211,14 +1300,14 @@ export const ecc_shallow_term_abbreviate_def = operator_definition('abbreviate',
     ]))
 )
 
-const ecc_possibly_rename_bound_to_avoid_set = (bound: CoastlineObject<'ECCVariable'>, set: CoastlineObject<'ECCTermSet'>): CoastlineObject<'ECCVariable'> => {
+const ecc_possibly_rename_bound_to_avoid_set = (bound: CoastlineObject<ECCTermOVM, 'ECCVariable'>, set: CoastlineObject<ECCTermOVM, 'ECCTermSet'>): CoastlineObject<ECCTermOVM, 'ECCVariable'> => {
     let current_bound = bound
     while (ecc_term_appears_in_term_set(current_bound, set))
         current_bound = obj('ECCVariable', `${current_bound.value}'`)
     return current_bound
 }
 
-export const ecc_possibly_rename_bound_to_avoid_set_def = operator_definition('possibly_rename_bound_to_avoid_set', ['bound', 'set'], (inputs) =>
+export const ecc_possibly_rename_bound_to_avoid_set_def = operator_definition<ECCTermOVM, ECCTermEVM>('possibly_rename_bound_to_avoid_set', ['bound', 'set'], (inputs) =>
     expect_ecc_variable(inputs[0], (bound) => expect_ecc_term_set(inputs[1], (set) => options_tree([
         ['bound in set', () =>
             !ecc_term_appears_in_term_set(bound, set) ? err('WithMessage', 'No the given bound variables does not appear in the given set, so feel free to re-use bound.')
@@ -1234,7 +1323,7 @@ export const ecc_possibly_rename_bound_to_avoid_set_def = operator_definition('p
     ])))
 )
 
-const ecc_binder_capture_avoiding_substitution = (replace_v: CoastlineObject<'ECCVariable'>, with_t: CoastlineObject<ECCTerm>, in_t: CoastlineObject<'ECCLambda' | 'ECCPi' | 'ECCSigma'>): CoastlineObject<'ECCLambda' | 'ECCPi' | 'ECCSigma'> => {
+const ecc_binder_capture_avoiding_substitution = (replace_v: CoastlineObject<ECCTermOVM, 'ECCVariable'>, with_t: CoastlineObject<ECCTermOVM, ECCTerm>, in_t: CoastlineObject<ECCTermOVM, 'ECCLambda' | 'ECCPi' | 'ECCSigma'>): CoastlineObject<ECCTermOVM, 'ECCLambda' | 'ECCPi' | 'ECCSigma'> => {
     const with_fvs = ecc_free_variables(with_t)
     const new_bound = ecc_possibly_rename_bound_to_avoid_set(in_t.value.bound, with_fvs)
     return obj(in_t.type, {
@@ -1250,7 +1339,7 @@ const ecc_binder_capture_avoiding_substitution = (replace_v: CoastlineObject<'EC
     })
 }
 
-const ecc_capture_avoiding_substitution = (replace_v: CoastlineObject<'ECCVariable'>, with_t: CoastlineObject<ECCTerm>, in_t: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+const ecc_capture_avoiding_substitution = (replace_v: CoastlineObject<ECCTermOVM, 'ECCVariable'>, with_t: CoastlineObject<ECCTermOVM, ECCTerm>, in_t: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineObject<ECCTermOVM, ECCTerm> => {
     if (cta('ECCSD', in_t))
         throw new Error('Cannot currently perform capture-avoiding substitution with static distance!')
     if (cta('ECCVariable', in_t) && ecc_terms_syntactically_equal(replace_v, in_t))
@@ -1290,7 +1379,7 @@ const ecc_capture_avoiding_substitution = (replace_v: CoastlineObject<'ECCVariab
 }
 
 // (ECCVariable, ECCTerm, ECCTerm) => ECCTerm
-export const ecc_capture_avoiding_substitution_def = operator_definition('capture_avoiding_substitution', ['to_replace', 'replacement', 'in'], (inputs) =>
+export const ecc_capture_avoiding_substitution_def = operator_definition<ECCTermOVM, ECCTermEVM>('capture_avoiding_substitution', ['to_replace', 'replacement', 'in'], (inputs) =>
     expect_ecc_variable(inputs[0], (to_replace_v) => expect_ecc_term(inputs[1], (replacement_t) => expect_ecc_term(inputs[2], (in_t) =>
         options_tree([
             // no change: Prop, Type
@@ -1385,14 +1474,14 @@ export const ecc_capture_avoiding_substitution_def = operator_definition('captur
     )))
 )
 
-export const ecc_check_variable_not_in_set_def = operator_definition('check_variable_not_in_set', ['variable', 'set'], (inputs) =>
+export const ecc_check_variable_not_in_set_def = operator_definition<ECCTermOVM, ECCTermEVM>('check_variable_not_in_set', ['variable', 'set'], (inputs) =>
     expect_ecc_variable(inputs[0], (variable) => expect_ecc_term_set(inputs[1], (set) =>
         ecc_term_appears_in_term_set(variable, set) ? err('WithMessage', 'The given Variable appears in a given Set.  Try again.')
         : variable
     ))
 )
 
-export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_lambda_def = operator_definition('capture_avoiding_substitution_with_new_bound_variable_in_lambda', ['new_variable', 'to_replace', 'replacement', 'in'], (inputs) =>
+export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_lambda_def = operator_definition<ECCTermOVM, ECCTermEVM>('capture_avoiding_substitution_with_new_bound_variable_in_lambda', ['new_variable', 'to_replace', 'replacement', 'in'], (inputs) =>
     expect_ecc_variable(inputs[0], (new_variable) => expect_ecc_variable(inputs[1], (to_replace_v) => expect_ecc_term(inputs[2], (replacement_t) => expect_ecc_lambda(inputs[3], (lambda) =>
         operator_app(lambda_def, [
             new_variable,
@@ -1406,7 +1495,7 @@ export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_lambda
     ))))
 )
 
-export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_pi_def = operator_definition('capture_avoiding_substitution_with_new_bound_variable_in_pi', ['new_variable', 'to_replace', 'replacement', 'in'], (inputs) =>
+export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_pi_def = operator_definition<ECCTermOVM, ECCTermEVM>('capture_avoiding_substitution_with_new_bound_variable_in_pi', ['new_variable', 'to_replace', 'replacement', 'in'], (inputs) =>
     expect_ecc_variable(inputs[0], (new_variable) => expect_ecc_variable(inputs[1], (to_replace_v) => expect_ecc_term(inputs[2], (replacement_t) => expect_ecc_pi(inputs[3], (pi) =>
         operator_app(pi_def, [
             new_variable,
@@ -1420,7 +1509,7 @@ export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_pi_def
     ))))
 )
 
-export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_sigma_def = operator_definition('capture_avoiding_substitution_with_new_bound_variable_in_pi', ['new_variable', 'to_replace', 'replacement', 'in'], (inputs) =>
+export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_sigma_def = operator_definition<ECCTermOVM, ECCTermEVM>('capture_avoiding_substitution_with_new_bound_variable_in_pi', ['new_variable', 'to_replace', 'replacement', 'in'], (inputs) =>
     expect_ecc_variable(inputs[0], (new_variable) => expect_ecc_variable(inputs[1], (to_replace_v) => expect_ecc_term(inputs[2], (replacement_t) => expect_ecc_sigma(inputs[3], (sigma) =>
         operator_app(pi_def, [
             new_variable,
@@ -1434,8 +1523,14 @@ export const ecc_capture_avoiding_substitution_with_new_bound_variable_in_sigma_
     ))))
 )
 
+export const ecc_and_def = operator_definition<ECCTermOVM, ECCTermEVM>('and', ['b1', 'b2'], (inputs: AnyCoastlineObject<ECCTermOVM>[]) =>
+    expect_ecc_boolean(inputs[0], (b1) => expect_ecc_boolean(inputs[1], (b2) =>
+        obj('Boolean', b1.value && b2.value)
+    ))
+)
+
 // (ECCTerm, ECCTerm) => Boolean
-export const ecc_terms_equal_def = operator_definition('terms_equal', ['term1', 'term2'], (inputs) =>
+export const ecc_terms_equal_def = operator_definition<ECCTermOVM, ECCTermEVM>('terms_equal', ['term1', 'term2'], (inputs) =>
     expect_ecc_term(inputs[0], (term1) => expect_ecc_term(inputs[1], (term2) =>
         options_tree([
             ['different types of ECCTerms', () => term1.type === term2.type ? err('WithMessage', 'You sure they have different types?') : obj('Boolean', false)],
@@ -1459,27 +1554,27 @@ export const ecc_terms_equal_def = operator_definition('terms_equal', ['term1', 
                 ])
             ))],
             ['both Application', () => expect_ecc_application(term1, (a1) => expect_ecc_application(term2, (a2) =>
-                operator_app(and_def, [
+                operator_app(ecc_and_def, [
                     operator_app(ecc_terms_equal_def, [a1.value.head, a2.value.head]),
                     operator_app(ecc_terms_equal_def, [a1.value.arg, a2.value.arg])
                 ])
             ))],
             ['Both Arrow', () => expect_ecc_arrow(term1, (a1) => expect_ecc_arrow(term2, (a2) =>
-                operator_app(and_def, [
+                operator_app(ecc_and_def, [
                     operator_app(ecc_terms_equal_def, [a1.value.input, a2.value.input]),
                     operator_app(ecc_terms_equal_def, [a1.value.output, a2.value.output])
                 ])
             ))],
             ['Both Product', () => expect_ecc_product(term1, (p1) => expect_ecc_product(term2, (p2) =>
-                operator_app(and_def, [
+                operator_app(ecc_and_def, [
                     operator_app(ecc_terms_equal_def, [p1.value.left, p2.value.left]),
                     operator_app(ecc_terms_equal_def, [p1.value.right, p2.value.right])
                 ])
             ))],
             ['both Pair', () => expect_ecc_pair(term1, (p1) => expect_ecc_pair(term2, (p2) =>
-                operator_app(and_def, [
+                operator_app(ecc_and_def, [
                     operator_app(ecc_terms_equal_def, [p1.value.pair_type, p2.value.pair_type]),
-                    operator_app(and_def, [
+                    operator_app(ecc_and_def, [
                         operator_app(ecc_terms_equal_def, [p1.value.left, p2.value.left]),
                         operator_app(ecc_terms_equal_def, [p1.value.right, p2.value.right])
                     ])
@@ -1494,21 +1589,21 @@ export const ecc_terms_equal_def = operator_definition('terms_equal', ['term1', 
                 : operator_app(ecc_terms_equal_def, [lp1.value.pair, lp2.value.pair])
             ))],
             ['Both Lambda', () => expect_ecc_lambda(term1, (l1) => expect_ecc_lambda(term2, (l2) =>
-                operator_app(and_def, [
+                operator_app(ecc_and_def, [
                     operator_app(ecc_terms_equal_def, [l1.value.bound, l2.value.bound]),
                     operator_app(ecc_terms_equal_def, [l1.value.bound_type, l2.value.bound_type]),
                     operator_app(ecc_terms_equal_def, [l1.value.scope, l2.value.scope])
                 ])
             ))],
             ['Both Pi', () => expect_ecc_pi(term1, (p1) => expect_ecc_pi(term2, (p2) =>
-                operator_app(and_def, [
+                operator_app(ecc_and_def, [
                     operator_app(ecc_terms_equal_def, [p1.value.bound, p2.value.bound]),
                     operator_app(ecc_terms_equal_def, [p1.value.bound_type, p2.value.bound_type]),
                     operator_app(ecc_terms_equal_def, [p1.value.scope, p2.value.scope])
                 ])
             ))],
             ['Both Sigma', () => expect_ecc_sigma(term1, (s1) => expect_ecc_sigma(term2, (s2) =>
-                operator_app(and_def, [
+                operator_app(ecc_and_def, [
                     operator_app(ecc_terms_equal_def, [s1.value.bound, s2.value.bound]),
                     operator_app(ecc_terms_equal_def, [s1.value.bound_type, s2.value.bound_type]),
                     operator_app(ecc_terms_equal_def, [s1.value.scope, s2.value.scope])
@@ -1518,14 +1613,14 @@ export const ecc_terms_equal_def = operator_definition('terms_equal', ['term1', 
     ))
 )
 
-const ecc_terms_alpha_equal = (term1: CoastlineObject<ECCTerm>, term2: CoastlineObject<ECCTerm>): boolean => {
+const ecc_terms_alpha_equal = (term1: CoastlineObject<ECCTermOVM, ECCTerm>, term2: CoastlineObject<ECCTermOVM, ECCTerm>): boolean => {
     return ecc_terms_syntactically_equal(
         ecc_static_distance(term1),
         ecc_static_distance(term2))
 }
 
 // (ECCTerm, ECCTerm) => Boolean
-export const ecc_terms_alpha_equal_def = operator_definition('alpha_equals', ['term1', 'term2'], (inputs) =>
+export const ecc_terms_alpha_equal_def = operator_definition<ECCTermOVM, ECCTermEVM>('alpha_equals', ['term1', 'term2'], (inputs) =>
     expect_ecc_term(inputs[0], (term1) => expect_ecc_term(inputs[1], (term2) =>
         operator_app(ecc_terms_equal_def, [
             operator_app(ecc_static_distance_def, [obj('ECCSDContext', []), term1]),
@@ -1534,8 +1629,8 @@ export const ecc_terms_alpha_equal_def = operator_definition('alpha_equals', ['t
     ))
 )
 
-const ecc_static_distance = (term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
-    const static_distance_acc = (acc: CoastlineObject<'ECCVariable'>[], term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+const ecc_static_distance = (term: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineObject<ECCTermOVM, ECCTerm> => {
+    const static_distance_acc = (acc: CoastlineObject<ECCTermOVM, 'ECCVariable'>[], term: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineObject<ECCTermOVM, ECCTerm> => {
         if (cta('ECCVariable', term)) {
             const v_index = acc.findIndex((v) => term.value === v.value)
             if (v_index === -1)
@@ -1581,8 +1676,8 @@ const ecc_static_distance = (term: CoastlineObject<ECCTerm>): CoastlineObject<EC
     return static_distance_acc([], term)
 }
 
-const js_ecc_binders_alpha_equal = (term1: CoastlineObject<ECCBinder>, term2: CoastlineObject<ECCBinder>): CoastlineControl =>
-    operator_app(and_def, [
+const js_ecc_binders_alpha_equal = (term1: CoastlineObject<ECCTermOVM, ECCBinder>, term2: CoastlineObject<ECCTermOVM, ECCBinder>): CoastlineControl<ECCTermOVM, ECCTermEVM> =>
+    operator_app(ecc_and_def, [
         operator_app(ecc_terms_alpha_equal_def, [term1.value.bound_type, term2.value.bound_type]),
         operator_app(ecc_terms_alpha_equal_def, [
             term1.value.scope,
@@ -1594,11 +1689,11 @@ const js_ecc_binders_alpha_equal = (term1: CoastlineObject<ECCBinder>, term2: Co
         ])
     ])
 
-export const expect_ecc_sd_context = expect_type('ECCSDContext')
+export const expect_ecc_sd_context = expect_type<ECCTermOVM, ECCTermEVM, 'ECCSDContext'>('ECCSDContext')
 
 // (ECCSDContext, Natural_Number, ECCTerm) => ECCSD
-export const ecc_static_distance_of_variable_def = operator_definition('static_distance_of_variable', ['distance_context', 'current_distance', 'variable'], (inputs) =>
-    expect_ecc_sd_context(inputs[0], (sd_ctx) => expect_natural(inputs[1], (current_sd) => expect_ecc_term(inputs[2], (variable) =>
+export const ecc_static_distance_of_variable_def = operator_definition<ECCTermOVM, ECCTermEVM>('static_distance_of_variable', ['distance_context', 'current_distance', 'variable'], (inputs) =>
+    expect_ecc_sd_context(inputs[0], (sd_ctx) => expect_ecc_natural(inputs[1], (current_sd) => expect_ecc_term(inputs[2], (variable) =>
         options_tree([
             ['variable is free', () =>
                 defined(sd_ctx.value.find((v) => ecc_terms_syntactically_equal(v, variable)))
@@ -1620,9 +1715,9 @@ export const ecc_static_distance_of_variable_def = operator_definition('static_d
 )
 
 // (ECCSDContext, ECCTerm) => ECCTerm
-export const ecc_static_distance_def = operator_definition('static_distance', ['distance_context', 'term'], (inputs) =>
+export const ecc_static_distance_def = operator_definition<ECCTermOVM, ECCTermEVM>('static_distance', ['distance_context', 'term'], (inputs) =>
     expect_ecc_sd_context(inputs[0], (sd_ctx) => expect_ecc_term(inputs[1], (term) => options_tree([
-        ['do not change', () => expect_types('ECCProp', 'ECCType', 'ECCVariable')(term, () =>
+        ['do not change', () => expect_types<ECCTermOVM, ECCTermEVM, 'ECCProp' | 'ECCType' | 'ECCVariable'>('ECCProp', 'ECCType', 'ECCVariable')(term, () =>
             cta('ECCVariable', term) && defined(sd_ctx.value.find((v) => term.value === v.value))
             ? err('WithMessage', 'The variable is in the distance context, so it should change.')
             : term
@@ -1687,16 +1782,16 @@ export const ecc_static_distance_def = operator_definition('static_distance', ['
     ])))
 )
 
-const ecc_is_beta_redex = (t: CoastlineObject<ECCTerm>): boolean =>
+const ecc_is_beta_redex = (t: CoastlineObject<ECCTermOVM, ECCTerm>): boolean =>
     cta('ECCApplication', t) && cta('ECCLambda', t.value.head)
 
-const ecc_is_left_sigma_redex = (t: CoastlineObject<ECCTerm>): boolean =>
+const ecc_is_left_sigma_redex = (t: CoastlineObject<ECCTermOVM, ECCTerm>): boolean =>
     cta('ECCProject', t) && t.value.project === 'left' && cta('ECCPair', t.value.pair)
 
-const ecc_is_right_sigma_redex = (t: CoastlineObject<ECCTerm>): boolean =>
+const ecc_is_right_sigma_redex = (t: CoastlineObject<ECCTermOVM, ECCTerm>): boolean =>
     cta('ECCProject', t) && t.value.project === 'left' && cta('ECCPair', t.value.pair)
 
-const ecc_term_children = (t: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm>[] => {
+const ecc_term_children = (t: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineObject<ECCTermOVM, ECCTerm>[] => {
     if (cta('ECCApplication', t))
         return [t.value.head, t.value.arg]
     if (cta('ECCArrow', t))
@@ -1712,11 +1807,11 @@ const ecc_term_children = (t: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm
     return []
 }
 
-const ecc_term_is_in_beta_sigma_normal_form = (t: CoastlineObject<ECCTerm>): boolean =>
+const ecc_term_is_in_beta_sigma_normal_form = (t: CoastlineObject<ECCTermOVM, ECCTerm>): boolean =>
     !ecc_is_beta_redex(t) && !ecc_is_left_sigma_redex(t) && !ecc_is_right_sigma_redex(t)
     && ecc_term_children(t).every(ecc_term_is_in_beta_sigma_normal_form)
 
-const ecc_reduce_completely = (term: CoastlineObject<ECCTerm>): CoastlineObject<ECCTerm> => {
+const ecc_reduce_completely = (term: CoastlineObject<ECCTermOVM, ECCTerm>): CoastlineObject<ECCTermOVM, ECCTerm> => {
     if (cta('ECCApplication', term)) {
         const reduced_head = ecc_reduce_completely(term.value.head)
         // If beta redex
@@ -1773,7 +1868,7 @@ const ecc_reduce_completely = (term: CoastlineObject<ECCTerm>): CoastlineObject<
 }
 
 // (ECCTerm) => ECCTerm
-export const ecc_reduce_completely_def = operator_definition('reduce_completely', ['term'], (inputs) =>
+export const ecc_reduce_completely_def = operator_definition<ECCTermOVM, ECCTermEVM>('reduce_completely', ['term'], (inputs) =>
     expect_ecc_term(inputs[0], (term) =>
         options_tree([
             ['already reduced', () => !ecc_term_is_in_beta_sigma_normal_form(term) ? err('WithMessage', 'It\'s not.') : term],
@@ -1859,7 +1954,7 @@ export const ecc_reduce_completely_def = operator_definition('reduce_completely'
     )
 )
 
-const ecc_terms_beta_equal = (term1: CoastlineObject<ECCTerm>, term2: CoastlineObject<ECCTerm>): boolean => {
+const ecc_terms_beta_equal = (term1: CoastlineObject<ECCTermOVM, ECCTerm>, term2: CoastlineObject<ECCTermOVM, ECCTerm>): boolean => {
     return ecc_terms_alpha_equal(
         ecc_reduce_completely(term1),
         ecc_reduce_completely(term2)
@@ -1867,7 +1962,7 @@ const ecc_terms_beta_equal = (term1: CoastlineObject<ECCTerm>, term2: CoastlineO
 }
 
 // (ECCTerm, ECCTerm) => boolean
-export const ecc_beta_equality_def = operator_definition('beta_equality', ['term1', 'term2'], (inputs) =>
+export const ecc_beta_equality_def = operator_definition<ECCTermOVM, ECCTermEVM>('beta_equality', ['term1', 'term2'], (inputs) =>
     expect_ecc_term(inputs[0], (term1) => expect_ecc_term(inputs[1], (term2) =>
         operator_app(ecc_terms_alpha_equal_def, [
             operator_app(ecc_reduce_completely_def, [term1]),
@@ -1876,12 +1971,12 @@ export const ecc_beta_equality_def = operator_definition('beta_equality', ['term
     ))
 )
 
-const ecc_subtype_of = (term1: CoastlineObject<ECCTerm>, term2: CoastlineObject<ECCTerm>): boolean => {
+const ecc_subtype_of = (term1: CoastlineObject<ECCTermOVM, ECCTerm>, term2: CoastlineObject<ECCTermOVM, ECCTerm>): boolean => {
     return ecc_terms_beta_equal(term1, term2)
 }
 
 // () => boolean
-export const ecc_subtype_of_def = operator_definition('subtype_of', ['term1', 'term2'], (inputs) =>
+export const ecc_subtype_of_def = operator_definition<ECCTermOVM, ECCTermEVM>('subtype_of', ['term1', 'term2'], (inputs) =>
     expect_ecc_term(inputs[0], (term1) => expect_ecc_term(inputs[1], (term2) =>
         options_tree([
             // ['terms are equal', () => ctas(['ECCSigma', 'ECCPi', 'ECCProduct', 'ECCArrow', 'ECCType', 'ECCProp'], term1)

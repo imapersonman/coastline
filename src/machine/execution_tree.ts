@@ -1,28 +1,28 @@
 import { concat_stacks, empty_stack, is_non_empty_stack, mk_stack, pop_entry, push_entry, Stack } from "../stack"
-import { display_or_undefined, defined, index_out_of_bounds, is_empty } from "../utilities"
+import { display_or_undefined, defined, index_out_of_bounds } from "../utilities"
 import { CoastlineControl, display_coastline_control } from "./control"
-import { AnyCoastlineError, display_coastline_error, is_coastline_error } from "./error"
+import { AnyCoastlineError, display_coastline_error, is_coastline_error, ErrorValueMap } from "./error"
 import { CoastlineCommand, CoastlineScript } from "./machine"
-import { AnyCoastlineObject, display_coastline_object, is_coastline_object } from "./object"
-import { OperatorApplication } from "./operator"
+import { AnyCoastlineObject, display_coastline_object, is_coastline_object, ObjectValueMap } from "./object"
+import { is_operator_app, OperatorApplication } from "./operator"
 import { is_options_tree, OptionsTree } from "./options_tree"
 // import { AnyCoastlineRequest, is_coastline_request, is_coastline_request2 } from "./request"
 import { AnyCoastlineRequest2, is_coastline_request2 } from "./request"
 
-export interface ETreeMachine {
-    throw_error(e: AnyCoastlineError): Stack<ExecutionTree<CoastlineControl>>
-    return_result(r: AnyCoastlineObject): Stack<ExecutionTree<CoastlineControl>>
+export interface ETreeMachine<OVM extends ObjectValueMap, EVM extends ErrorValueMap> {
+    throw_error(e: AnyCoastlineError<EVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>>
+    return_result(r: AnyCoastlineObject<OVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>>
     clear_result(): void
 }
 
-export class ReturnMachine implements ETreeMachine  {
-    constructor(readonly parent: ExecutionTree<CoastlineControl>) {}
+export class ReturnMachine<OVM extends ObjectValueMap, EVM extends ErrorValueMap> implements ETreeMachine<OVM, EVM>  {
+    constructor(readonly parent: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>) {}
 
-    throw_error(e: AnyCoastlineError): Stack<ExecutionTree<CoastlineControl>> {
+    throw_error(e: AnyCoastlineError<EVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return this.parent.accept_thrown_error(e)
     }
 
-    return_result(r: AnyCoastlineObject): Stack<ExecutionTree<CoastlineControl>> {
+    return_result(r: AnyCoastlineObject<OVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return this.parent.accept_returned_result(r)
     }
 
@@ -31,14 +31,14 @@ export class ReturnMachine implements ETreeMachine  {
     }
 }
 
-export class ArgumentMachine implements ETreeMachine {
-    constructor(readonly parent: ApplicationETree, readonly argument_index: number) {}
+export class ArgumentMachine<OVM extends ObjectValueMap, EVM extends ErrorValueMap> implements ETreeMachine<OVM, EVM> {
+    constructor(readonly parent: ApplicationETree<OVM, EVM>, readonly argument_index: number) {}
 
-    throw_error(e: AnyCoastlineError): Stack<ExecutionTree<CoastlineControl>> {
+    throw_error(e: AnyCoastlineError<EVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return this.parent.accept_argument_error(e, this.argument_index)
     }
 
-    return_result(r: AnyCoastlineObject): Stack<ExecutionTree<CoastlineControl>> {
+    return_result(r: AnyCoastlineObject<OVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return this.parent.accept_argument_result(r, this.argument_index)
     }
 
@@ -47,14 +47,14 @@ export class ArgumentMachine implements ETreeMachine {
     }
 }
 
-export class ResponseMachine implements ETreeMachine {
-    constructor(readonly parent: RequestETree) {}
+export class ResponseMachine<OVM extends ObjectValueMap, EVM extends ErrorValueMap> implements ETreeMachine<OVM, EVM> {
+    constructor(readonly parent: RequestETree<OVM, EVM>) {}
 
-    throw_error(e: AnyCoastlineError): Stack<ExecutionTree<CoastlineControl>> {
+    throw_error(e: AnyCoastlineError<EVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return this.parent.accept_thrown_error(e)
     }
 
-    return_result(r: AnyCoastlineObject): Stack<ExecutionTree<CoastlineControl>> {
+    return_result(r: AnyCoastlineObject<OVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return this.parent.accept_response_object(r)
     }
 
@@ -63,31 +63,31 @@ export class ResponseMachine implements ETreeMachine {
     }
 }
 
-export class RootMachine implements ETreeMachine {
-    throw_error(e: AnyCoastlineError): Stack<ExecutionTree<CoastlineControl>> {
+export class RootMachine<OVM extends ObjectValueMap, EVM extends ErrorValueMap> implements ETreeMachine<OVM, EVM> {
+    throw_error(e: AnyCoastlineError<EVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return mk_stack()
     }
 
-    return_result(r: AnyCoastlineObject): Stack<ExecutionTree<CoastlineControl>> {
+    return_result(r: AnyCoastlineObject<OVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return mk_stack()
     }
 
     clear_result(): void {}
 }
 
-export abstract class ExecutionTree<Control extends CoastlineControl> {
-    protected error?: AnyCoastlineError
-    protected result?: AnyCoastlineObject
+export abstract class ExecutionTree<OVM extends ObjectValueMap, EVM extends ErrorValueMap, Control extends CoastlineControl<OVM, EVM>> {
+    protected error?: AnyCoastlineError<EVM>
+    protected result?: AnyCoastlineObject<OVM>
 
-    constructor(readonly control: Control, readonly machine: ETreeMachine) {}
+    constructor(readonly control: Control, readonly machine: ETreeMachine<OVM, EVM>) {}
 
-    accept_thrown_error(e: AnyCoastlineError): Stack<ExecutionTree<CoastlineControl>> {
+    accept_thrown_error(e: AnyCoastlineError<EVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         this.error = e
         this.result = undefined
         return this.machine.throw_error(e)
     }
 
-    accept_returned_result(r: AnyCoastlineObject): Stack<ExecutionTree<CoastlineControl>> {
+    accept_returned_result(r: AnyCoastlineObject<OVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         this.error = undefined
         this.result = r
         return this.machine.return_result(r)
@@ -98,40 +98,42 @@ export abstract class ExecutionTree<Control extends CoastlineControl> {
         this.machine.clear_result()
     }
 
-    get_error(): AnyCoastlineError | undefined {
+    get_error(): AnyCoastlineError<EVM> | undefined {
         return this.error
     }
 
-    get_result(): AnyCoastlineObject | undefined {
+    get_result(): AnyCoastlineObject<OVM> | undefined {
         return this.result
     }
 
-    static from_control(control: CoastlineControl, machine: ETreeMachine): ExecutionTree<CoastlineControl> {
-        if (is_coastline_object(control))
+    static from_control<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(control: CoastlineControl<OVM, EVM>, machine: ETreeMachine<OVM, EVM>): ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>> {
+        if (is_coastline_object<OVM>(control))
             return new ObjectETree(control, machine)
-        if (is_coastline_error(control))
-            return new ErrorETree(control, machine)
-        if (is_options_tree(control))
+        if (is_coastline_error<EVM>(control))
+            return new ErrorETree<OVM, EVM>(control, machine)
+        if (is_options_tree<OVM, EVM>(control))
             return new OptionsETree(control, machine)
         if (is_coastline_request2(control))
             return new RequestETree(control, machine)
-        return new ApplicationETree(control, machine)
+        if (is_operator_app<OVM, EVM>(control))
+            return new ApplicationETree(control, machine)
+        throw new Error(`Unrecognized CoastlineControl!\n${JSON.stringify(control)}`)
     }
 
-    static root_from_control(control: CoastlineControl): ExecutionTree<CoastlineControl> {
+    static root_from_control<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(control: CoastlineControl<OVM, EVM>): ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>> {
         return ExecutionTree.from_control(control, new RootMachine)
     }
 
-    static is_paused(etree: ExecutionTree<CoastlineControl>): etree is OptionsETree | RequestETree {
+    static is_paused<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(etree: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>): etree is OptionsETree<OVM, EVM> | RequestETree<OVM, EVM> {
         return etree instanceof OptionsETree
             || etree instanceof RequestETree
     }
 
-    static is_unpaused(etree: ExecutionTree<CoastlineControl>): etree is ObjectETree | ErrorETree | ApplicationETree {
+    static is_unpaused<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(etree: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>): etree is ObjectETree<OVM, EVM> | ErrorETree<OVM, EVM> | ApplicationETree<OVM, EVM> {
         return !ExecutionTree.is_paused(etree)
     }
 
-    static step_unpaused(unpaused: ObjectETree | ErrorETree | ApplicationETree): Stack<ExecutionTree<CoastlineControl>> {
+    static step_unpaused<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(unpaused: ObjectETree<OVM, EVM> | ErrorETree<OVM, EVM> | ApplicationETree<OVM, EVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         if (unpaused instanceof ObjectETree)
             return unpaused.return()
         if (unpaused instanceof ErrorETree)
@@ -139,54 +141,54 @@ export abstract class ExecutionTree<Control extends CoastlineControl> {
         return unpaused.apply()
     }
 
-    static is_object(o: unknown): o is ObjectETree {
+    static is_object<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(o: unknown): o is ObjectETree<OVM, EVM> {
         return o instanceof ObjectETree
     }
 
-    static is_error(e: unknown): e is ErrorETree {
+    static is_error<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(e: unknown): e is ErrorETree<OVM, EVM> {
         return e instanceof ErrorETree
     }
 
-    static is_options(o: unknown): o is OptionsETree {
+    static is_options<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(o: unknown): o is OptionsETree<OVM, EVM> {
         return o instanceof OptionsETree
     }
 
-    static is_request(r: unknown): r is RequestETree {
+    static is_request<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(r: unknown): r is RequestETree<OVM, EVM> {
         return r instanceof RequestETree
     }
 
-    static is_application(a: unknown): a is ApplicationETree {
+    static is_application<OVM extends ObjectValueMap, EVM extends ErrorValueMap>(a: unknown): a is ApplicationETree<OVM, EVM> {
         return a instanceof ApplicationETree
     }
 }
 
-export class ObjectETree extends ExecutionTree<AnyCoastlineObject> {
-    constructor(readonly control: AnyCoastlineObject, readonly machine: ETreeMachine) {
+export class ObjectETree<OVM extends ObjectValueMap, EVM extends ErrorValueMap> extends ExecutionTree<OVM, EVM, AnyCoastlineObject<OVM>> {
+    constructor(readonly control: AnyCoastlineObject<OVM>, readonly machine: ETreeMachine<OVM, EVM>) {
         super(control, machine)
         this.return()
     }
 
-    return(): Stack<ExecutionTree<CoastlineControl>> {
+    return(): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return this.accept_returned_result(this.control)
     }
 }
 
-export class ErrorETree extends ExecutionTree<AnyCoastlineError> {
-    constructor(readonly control: AnyCoastlineError, readonly machine: ETreeMachine) {
+export class ErrorETree<OVM extends ObjectValueMap, EVM extends ErrorValueMap> extends ExecutionTree<OVM, EVM, AnyCoastlineError<EVM>> {
+    constructor(readonly control: AnyCoastlineError<EVM>, readonly machine: ETreeMachine<OVM, EVM>) {
         super(control, machine)
         this.throw()
     }
 
-    throw(): Stack<ExecutionTree<CoastlineControl>> {
+    throw(): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         return this.accept_thrown_error(this.control)
     }
 }
 
-export class OptionsETree extends ExecutionTree<OptionsTree> {
-    private return_tree?: ExecutionTree<CoastlineControl>
+export class OptionsETree<OVM extends ObjectValueMap, EVM extends ErrorValueMap> extends ExecutionTree<OVM, EVM, OptionsTree<OVM, EVM>> {
+    private return_tree?: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>
     private chosen_path?: string
 
-    choose(path_label: string): Stack<ExecutionTree<CoastlineControl>> {
+    choose(path_label: string): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         this.machine.clear_result()
         const found_path = this.control.options.find(([label]) => path_label === label)
         if (!defined(found_path))
@@ -196,7 +198,7 @@ export class OptionsETree extends ExecutionTree<OptionsTree> {
         return mk_stack(this.return_tree)
     }
 
-    get_return_tree(): ExecutionTree<CoastlineControl> | undefined {
+    get_return_tree(): ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>> | undefined {
         return this.return_tree
     }
 
@@ -205,68 +207,69 @@ export class OptionsETree extends ExecutionTree<OptionsTree> {
     }
 }
 
-export class RequestETree extends ExecutionTree<AnyCoastlineRequest2> {
-    private return_tree?: ExecutionTree<CoastlineControl>
-    private response_tree?: ExecutionTree<CoastlineControl>
-    private response_object?: AnyCoastlineObject
+export class RequestETree<OVM extends ObjectValueMap, EVM extends ErrorValueMap> extends ExecutionTree<OVM, EVM, AnyCoastlineRequest2<OVM>> {
+    private return_tree?: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>
+    private response_tree?: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>
+    private response_object?: AnyCoastlineObject<OVM>
 
     // respond(response: AnyCoastlineObject): Stack<ExecutionTree<CoastlineControl>> {
-    respond(response: CoastlineControl): Stack<ExecutionTree<CoastlineControl>> {
+    respond(response: CoastlineControl<OVM, EVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         // this.response_tree = ExecutionTree.from_control(response, new ResponseMachine(this))
         // this.return_tree = ExecutionTree.from_control(this.control.f(response), new ResponseMachine(this, response))
         this.return_tree = ExecutionTree.from_control(response, new ReturnMachine(this))
         return mk_stack(this.return_tree)
     }
 
-    accept_response_object(r: AnyCoastlineObject): Stack<ExecutionTree<CoastlineControl>> {
+    accept_response_object(r: AnyCoastlineObject<OVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         this.response_object = r
         this.return_tree = ExecutionTree.from_control(r, new ReturnMachine(this))
         return mk_stack(this.return_tree)
     }
 
-    get_response_tree(): ExecutionTree<CoastlineControl> | undefined {
+    get_response_tree(): ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>> | undefined {
         return this.response_tree
     }
 
-    get_response_object(): AnyCoastlineObject | undefined {
+    get_response_object(): AnyCoastlineObject<OVM> | undefined {
         return this.response_object
     }
 
-    get_return_tree(): ExecutionTree<CoastlineControl> | undefined {
+    get_return_tree(): ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>> | undefined {
         return this.return_tree
     }
 }
 
-export class ApplicationETree extends ExecutionTree<OperatorApplication> {
-    private argument_results: (AnyCoastlineObject | undefined)[]
-    private argument_trees: ExecutionTree<CoastlineControl>[] = []
-    private return_tree?: ExecutionTree<CoastlineControl>
+export class ApplicationETree<OVM extends ObjectValueMap, EVM extends ErrorValueMap> extends ExecutionTree<OVM, EVM, OperatorApplication<OVM, EVM>> {
+    private argument_results: (AnyCoastlineObject<OVM> | undefined)[]
+    private argument_trees: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>[] = []
+    private return_tree?: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>
 
-    constructor(control: OperatorApplication, machine: ETreeMachine) {
+    constructor(control: OperatorApplication<OVM, EVM>, machine: ETreeMachine<OVM, EVM>) {
         super(control, machine)
         this.argument_results = new Array(this.control.controls.length).fill(undefined)
         this.apply()
     }
 
-    apply(): Stack<ExecutionTree<CoastlineControl>> {
+    apply(): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         this.argument_trees = this.control.controls.map((arg_c, index) =>
             ExecutionTree.from_control(arg_c, new ArgumentMachine(this, index)))
         return concat_stacks(mk_stack(...this.argument_trees), this.attempt_to_create_return_tree())
     }
 
-    accept_argument_error(e: AnyCoastlineError, argument_index: number): Stack<ExecutionTree<CoastlineControl>> {
+    accept_argument_error(e: AnyCoastlineError<EVM>, argument_index: number): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         this.return_tree = undefined
         this.argument_results[argument_index] = undefined
         return this.machine.throw_error(e)
     }
 
-    accept_argument_result(r: AnyCoastlineObject, argument_index: number): Stack<ExecutionTree<CoastlineControl>> {
+    accept_argument_result(r: AnyCoastlineObject<OVM>, argument_index: number): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         const n_results = Object.values(this.argument_results).length
         if (index_out_of_bounds(argument_index, Object.values(this.argument_results).length))
             throw new Error(`argument_index passed into ApplicationETree's accept_argument_result is out of bounds!\nindex: ${argument_index}\nbounds: 0 <= index < ${n_results}`)
         this.argument_results[argument_index] = r
-        this.attempt_to_create_return_tree()
-        return mk_stack(this.return_tree)
+        // this.attempt_to_create_return_tree()
+        // return mk_stack(this.return_tree)
+        return this.attempt_to_create_return_tree()
     }
 
     accept_cleared_argument_result(argument_index: number): void {
@@ -275,32 +278,32 @@ export class ApplicationETree extends ExecutionTree<OperatorApplication> {
         this.machine.clear_result()
     }
 
-    private attempt_to_create_return_tree(): Stack<ExecutionTree<CoastlineControl>> {
+    private attempt_to_create_return_tree(): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> {
         if (!this.all_arguments_have_returned(this.argument_results))
             return empty_stack
         this.return_tree = ExecutionTree.from_control(this.control.definition.f(this.argument_results), new ReturnMachine(this))
         return mk_stack(this.return_tree)
     }
 
-    get_argument_results(): (AnyCoastlineObject | undefined)[] {
+    get_argument_results(): (AnyCoastlineObject<OVM> | undefined)[] {
         return this.argument_results
     }
 
-    get_argument_trees(): ExecutionTree<CoastlineControl>[] | undefined {
+    get_argument_trees(): ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>[] | undefined {
         return this.argument_trees
     }
 
-    get_return_tree(): ExecutionTree<CoastlineControl> | undefined {
+    get_return_tree(): ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>> | undefined {
         return this.return_tree
     }
 
-    private all_arguments_have_returned(ars: (AnyCoastlineObject | undefined)[]): ars is AnyCoastlineObject[] {
+    private all_arguments_have_returned(ars: (AnyCoastlineObject<OVM> | undefined)[]): ars is AnyCoastlineObject<OVM>[] {
         return this.argument_results.every(defined)
     }
 }
 
 // Mutates etree (a lot)!
-export const run_execution_tree_stack_until_paused_or_finished = (initial_stack: Stack<ExecutionTree<CoastlineControl>>): Stack<ExecutionTree<CoastlineControl>> => {
+export const run_execution_tree_stack_until_paused_or_finished = <OVM extends ObjectValueMap, EVM extends ErrorValueMap>(initial_stack: Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> => {
     let stack = initial_stack
     while (is_non_empty_stack(stack)) {
         const popped = pop_entry(stack)
@@ -313,7 +316,7 @@ export const run_execution_tree_stack_until_paused_or_finished = (initial_stack:
     return stack
 }
 
-export const step_paused_execution_tree_with_command = (etree: OptionsETree | RequestETree, command: CoastlineCommand): Stack<ExecutionTree<CoastlineControl>> => {
+export const step_paused_execution_tree_with_command = <OVM extends ObjectValueMap, EVM extends ErrorValueMap>(etree: OptionsETree<OVM, EVM> | RequestETree<OVM, EVM>, command: CoastlineCommand<OVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> => {
     if (etree instanceof OptionsETree)
         if (command.type === 'Choice')
             return etree.choose(command.value)
@@ -327,7 +330,7 @@ export const step_paused_execution_tree_with_command = (etree: OptionsETree | Re
     throw new Error(`Unrecognized command type when stepping an execution tree: ${command.type}`)
 }
 
-export const run_execution_tree_stack_with_script = (initial_stack: Stack<ExecutionTree<CoastlineControl>>, script: CoastlineScript): Stack<ExecutionTree<CoastlineControl>> => {
+export const run_execution_tree_stack_with_script = <OVM extends ObjectValueMap, EVM extends ErrorValueMap>(initial_stack: Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>>, script: CoastlineScript<OVM>): Stack<ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>> => {
     let stack = initial_stack
     let script_index = 0
     stack = run_execution_tree_stack_until_paused_or_finished(stack)
@@ -337,20 +340,23 @@ export const run_execution_tree_stack_with_script = (initial_stack: Stack<Execut
         stack = popped[1]
         if (ExecutionTree.is_paused(current))
             if (script_index < script.length) {
-                stack = concat_stacks(step_paused_execution_tree_with_command(current, script[script_index]), stack)
+                const stepped = step_paused_execution_tree_with_command(current, script[script_index])
+                stack = concat_stacks(stepped, stack)
                 script_index++
             } else {
-                console.log(JSON.stringify(display_execution_tree(current), undefined, 2))
+                // console.log(JSON.stringify(display_execution_tree(current), undefined, 2))
                 return push_entry(stack, current)
             }
-        else if (ExecutionTree.is_unpaused(current))
-            stack = concat_stacks(ExecutionTree.step_unpaused(current), stack)
+        else if (ExecutionTree.is_unpaused(current)) {
+            const stepped = ExecutionTree.step_unpaused(current)
+            stack = concat_stacks(stepped, stack)
+        }
     }
     return stack
 }
 
-export const display_execution_tree = (etree: ExecutionTree<CoastlineControl>) => {
-    const display_specific_execution_tree = (specific_etree: ExecutionTree<CoastlineControl>) => {
+export const display_execution_tree = <OVM extends ObjectValueMap, EVM extends ErrorValueMap>(etree: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>, display_object: (o: AnyCoastlineObject<OVM>) => any = JSON.stringify) => {
+    const display_specific_execution_tree = (specific_etree: ExecutionTree<OVM, EVM, CoastlineControl<OVM, EVM>>) => {
         if (specific_etree instanceof OptionsETree)
             return {
                 chosen_path: specific_etree.get_chosen_path() ?? 'undefined',
@@ -363,7 +369,7 @@ export const display_execution_tree = (etree: ExecutionTree<CoastlineControl>) =
             }
         if (specific_etree instanceof ApplicationETree)
             return {
-                argument_results: specific_etree.get_argument_results().map((ar) => display_or_undefined(display_coastline_object, ar)),
+                argument_results: specific_etree.get_argument_results().map((ar) => display_or_undefined((o: AnyCoastlineObject<OVM>) => display_coastline_object(o, display_object), ar as AnyCoastlineObject<OVM>)),
                 argument_trees: display_or_undefined((ats) => ats.map((at) => display_execution_tree(at)), specific_etree.get_argument_trees()),
                 return_tree: display_or_undefined(display_execution_tree, specific_etree.get_return_tree())
             }

@@ -1,16 +1,25 @@
 import { CoastlineControl } from "./control"
-import { err } from "./error"
-import { AnyCoastlineObject, CoastlineObject, CoastlineObjectValueMap, cta } from "./object"
+import { err, ErrorValueMap, object_not_of_any_type_error, object_not_of_type_error } from "./error"
+import { AnyCoastlineObject, CoastlineObject, cta, ObjectValueMap } from "./object"
 
-export const expect_type = <CT extends keyof CoastlineObjectValueMap>(ct: CT) => (o: AnyCoastlineObject, f: (t: CoastlineObject<CT>) => CoastlineControl): CoastlineControl => {
+export const expect_type = <
+    OVM extends ObjectValueMap,
+    EVM extends ErrorValueMap,
+    CT extends keyof OVM>(ct: CT) => (o: AnyCoastlineObject<OVM>,
+    f: (t: CoastlineObject<OVM, CT>) => CoastlineControl<OVM, EVM>
+): CoastlineControl<OVM, EVM> => {
     if (!cta(ct, o))
-        return err('ObjectNotOfType', { object: o, expected: ct })
+        return object_not_of_type_error(o, ct)
     return f(o)
 }
 
-export const expect_types = <CT extends keyof CoastlineObjectValueMap>(...cts: CT[]) => (o: AnyCoastlineObject, f: (o: CoastlineObject<CT>) => CoastlineControl): CoastlineControl => {
+export const expect_types = <
+    OVM extends ObjectValueMap,
+    EVM extends ErrorValueMap,
+    CT extends keyof OVM>(...cts: CT[]) => (o: AnyCoastlineObject<OVM>, f: (o: CoastlineObject<OVM, CT>) => CoastlineControl<OVM, EVM>
+): CoastlineControl<OVM, EVM> => {
     for (const ct of cts)
         if (cta(ct, o))
             return f(o)
-    return err('ObjectNotOfAnyType', { expected: cts, actual: o.type })
+    return object_not_of_any_type_error(o, cts, o.type)
 }

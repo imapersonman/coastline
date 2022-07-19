@@ -135,9 +135,9 @@ export const apply_meta_substitution_to_ast = (ms: MetaSubstitution, ast: Ast): 
         return ast
     if (is_meta_variable(ast))
         return apply_meta_substitution_to_meta_variable(ms, ast)
-    if (is_suspension(ast)) {
+    if (is_suspension(ast))
         return apply_permutation_to_ast(ast.permutation, apply_meta_substitution_to_meta_variable(ms, ast.meta_variable))
-    } if (is_application(ast))
+    if (is_application(ast))
         return app(apply_meta_substitution_to_ast(ms, ast.head), apply_meta_substitution_to_ast(ms, ast.arg))
     if (is_lambda(ast))
         return la(ast.bound, apply_meta_substitution_to_ast(ms, ast.type), apply_meta_substitution_to_ast(ms, ast.scope))
@@ -169,7 +169,6 @@ export const apply_meta_substitution_to_freshness_environment = (ms: MetaSubstit
     for (const [v, s] of it) {
         const subbed_current = apply_meta_substitution_to_ast(ms, s)
         if (is_meta_variable(subbed_current) || is_suspension(subbed_current))
-            // unchanged = non_empty_linked_list([v, meta_variable_or_suspension_to_suspension(subbed_current)], unchanged)
             unchanged = non_empty_linked_list([v, subbed_current], unchanged)
         else
             changed = non_empty_linked_list(fr_c(v, subbed_current), changed)
@@ -357,7 +356,7 @@ export const is_left_suspension_equation = (equation: EquationalConstraint<Ast, 
 export const is_right_suspension_equation = (equation: EquationalConstraint<Ast, Ast>): equation is EquationalConstraint<Ast, Suspension> =>
     is_suspension(equation.right)
 
-export const step_phase_one = (
+export const make_phase_one_step = (
     step_left_suspension_equation: (s: Suspension, t: Ast) => NominalProblem | NominalError,
     step_right_suspension_equation: (t: Ast, s: Suspension) => NominalProblem | NominalError
 ) => (equation: EquationalConstraint<Ast, Ast>): NominalProblem | NominalError => {
@@ -381,7 +380,7 @@ export const step_problem = (
     step_right_suspension_equation: (t: Ast, s: Suspension) => NominalProblem | NominalError
 ) => (problem: NominalProblem): NominalProblem | NominalSolution | NominalError => {
     const [constraint, rest_of_problem] = next_constraint_from_problem(problem)
-    const sp1 = step_phase_one(step_left_suspension_equation, step_right_suspension_equation)
+    const sp1 = make_phase_one_step(step_left_suspension_equation, step_right_suspension_equation)
     if (is_equational_constraint(constraint))
         return possibly_extend_problem(rest_of_problem, sp1(constraint))
     if (is_freshness_constraint(constraint))
